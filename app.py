@@ -19,6 +19,9 @@ EMAIL_PASSWORD = "your-app-password"    # Replace with your App Password
 EMAIL_SERVER = "smtp.gmail.com"
 EMAIL_PORT = 587
 
+# Simple in-memory portfolio (for demo; use a DB in production)
+PORTFOLIO = {}
+
 def get_coingecko_coins():
     url = "https://api.coingecko.com/api/v3/coins/list"
     response = requests.get(url)
@@ -228,7 +231,7 @@ EMAIL_LIST = []
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    global EMAIL_LIST
+    global EMAIL_LIST, PORTFOLIO
     crypto_data = None
     chart_labels = []
     chart_prices = []
@@ -246,47 +249,45 @@ def home():
     elliott_analysis = ""
     in_depth_analysis = ""
     real_time_price = 0
-    selected_coin_id = request.form.get("ticker") if request.method == "POST" else None
-    logger.debug(f"Selected coin_id from form: {selected_coin_id}")
-    portfolio_email = request.form.get("portfolio_email")
-    alert_email = request.form.get("alert_email")
-    alert_threshold = request.form.get("alert_threshold")
 
-    if portfolio_email and portfolio_email not in EMAIL_LIST:
-        EMAIL_LIST.append(portfolio_email)
-        send_email("Welcome to WAVE Portfolio", f"Thank you for joining, {portfolio_email}! Your portfolio will be emailed daily.", portfolio_email)
+    # Handle form submission (POST)
+    if request.method == "POST":
+        selected_coin_id = request.form.get("ticker")
+        logger.debug(f"Selected coin_id from form: {selected_coin_id}")
+        portfolio_email = request.form.get("portfolio_email")
+        alert_email = request.form.get("alert_email")
+        alert_threshold = request.form.get("alert_threshold")
 
-    if selected_coin_id:
-        url = f"https://api.coingecko.com/api/v3/coins/{selected_coin_id}"
-        response = requests.get(url)
-        logger.debug(f"Coin info response status: {response.status_code}")
-        if response.status_code == 200:
-            data = response.json()
-            crypto_data = {
-                "ticker": data["symbol"].upper(),
-                "name": data["name"],
-                "price": f"${data['market_data']['current_price']['usd']:.2f}",
-                "market_cap": f"${data['market_data']['market_cap']['usd']:,.0f}",
-                "volume_24h": f"${data['market_data']['total_volume']['usd']:,.0f}"
-            }
-            (chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal,
-             chart_sma, chart_ema, chart_upper_bb, chart_lower_bb, chart_k_stoch, chart_d_stoch,
-             chart_obv, elliott_analysis, in_depth_analysis) = get_historical_data(selected_coin_id)
-            real_time_price = get_real_time_price(selected_coin_id)
+        if selected_coin_id:
+            url = f"https://api.coingecko.com/api/v3/coins/{selected_coin_id}"
+            response = requests.get(url)
+            logger.debug(f"Coin info response status: {response.status_code}")
+            if response.status_code == 200:
+                data = response.json()
+                crypto_data = {
+                    "ticker": data["symbol"].upper(),
+                    "name": data["name"],
+                    "price": f"${data['market_data']['current_price']['usd']:.2f}",
+                    "market_cap": f"${data['market_data']['market_cap']['usd']:,.0f}",
+                    "volume_24h": f"${data['market_data']['total_volume']['usd']:,.0f}"
+                }
+                (chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal,
+                 chart_sma, chart_ema, chart_upper_bb, chart_lower_bb, chart_k_stoch, chart_d_stoch,
+                 chart_obv, elliott_analysis, in_depth_analysis) = get_historical_data(selected_coin_id)
+                real_time_price = get_real_time_price(selected_coin_id)
 
-            # Portfolio email (daily summary) - Test with frequent check
-            if portfolio_email and datetime.now().minute % 1 == 0:  # Check every minute for testing
-                portfolio = []  # Placeholder; expand with user input later
-                portfolio_value = sum(p[1] * get_real_time_price(p[0]) for p in portfolio if get_real_time_price(p[0]))
-                send_email("Daily Portfolio Update", f"Portfolio Value for {portfolio_email}: ${portfolio_value:.2f}", portfolio_email)
+                # Portfolio email (daily summary) - Test with frequent check
+                if portfolio_email and datetime.now().minute % 1 == 0:  # Check every minute for testing
+                    portfolio_value = sum(qty * get_real_time_price(coin_id) for coin_id, qty in PORTFOLIO.items() if get_real_time_price(coin_id))
+                    send_email("Daily Portfolio Update", f"Portfolio Value for {portfolio_email}: ${portfolio_value:.2f}", portfolio_email)
 
-            # Alert email
-            if alert_email and alert_threshold and real_time_price >= float(alert_threshold):
-                send_email(f"Price Alert for {crypto_data['ticker']}", f"Price reached ${real_time_price} (Threshold: ${alert_threshold})", alert_email)
+                # Alert email
+                if alert_email and alert_threshold and real_time_price >= float(alert_threshold):
+                    send_email(f"Price Alert for {crypto_data['ticker']}", f"Price reached ${real_time_price} (Threshold: ${alert_threshold})", alert_email)
+            else:
+                crypto_data = {"error": "Unable to fetch data for this coin"}
 
-        else:
-            crypto_data = {"error": "Unable to fetch data for this coin"}
-
+    # Render the template (GET or after POST processing)
     return render_template("index.html", crypto_data=crypto_data, coins=COIN_LIST,
                           chart_labels=chart_labels, chart_prices=chart_prices,
                           chart_volumes=chart_volumes, chart_rsi=chart_rsi,
@@ -296,6 +297,33 @@ def home():
                           chart_k_stoch=chart_k_stoch, chart_d_stoch=chart_d_stoch,
                           chart_obv=chart_obv, elliott_analysis=elliott_analysis,
                           in_depth_analysis=in_depth_analysis, real_time_price=real_time_price)
+
+@app.route("/portfolio", methods=["GET", "POST"])
+def portfolio():
+    global PORTFOLIO
+    if request.method == "POST":
+        coin_id = request.form.get("coin_id")
+        quantity = request.form.get("quantity")
+        if coin_id and quantity:
+            PORTFOLIO[coin_id] = float(quantity)
+        elif request.form.get("remove_coin"):
+            coin_id = request.form.get("remove_coin")
+            PORTFOLIO.pop(coin_id, None)
+    return render_template("portfolio.html", portfolio=PORTFOLIO, coins=COIN_LIST)
+
+@app.route("/backtesting")
+def backtesting():
+    return render_template("backtesting.html")
+
+@app.route("/news")
+def news():
+    # Simple mock news (replace with RSS feed or X scraping later)
+    news_items = ["Bitcoin surges 5%!", "Ethereum upgrade delayed", "XRP wins legal battle"]
+    return render_template("news.html", news_items=news_items)
+
+@app.route("/learning")
+def learning():
+    return render_template("learning.html")
 
 if __name__ == "__main__":
     app.run(debug=True)
