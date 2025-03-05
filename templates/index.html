@@ -104,7 +104,6 @@
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             padding: 10px;
-            height: 300px; /* Fixed height for consistency */
         }
         .chart-container.dragging {
             opacity: 0.7;
@@ -187,21 +186,6 @@
         <div class="chart-container" draggable="true">
             <canvas id="obvChart"></canvas>
         </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="ichimokuChart"></canvas>
-        </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="atrChart"></canvas>
-        </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="rviChart"></canvas>
-        </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="adLineChart"></canvas>
-        </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="psarChart"></canvas>
-        </div>
         <div class="elliott-analysis">
             {{ elliott_analysis|safe }}
         </div>
@@ -238,24 +222,6 @@
             var chartKstoch = {{ chart_k_stoch|tojson|safe }};
             var chartDstoch = {{ chart_d_stoch|tojson|safe }};
             var chartObv = {{ chart_obv|tojson|safe }};
-            var chartTenkan = {{ chart_tenkan|tojson|safe }};
-            var chartKijun = {{ chart_kijun|tojson|safe }};
-            var chartSenkouA = {{ chart_senkou_a|tojson|safe }};
-            var chartSenkouB = {{ chart_senkou_b|tojson|safe }};
-            var chartAtr = {{ chart_atr|tojson|safe }};
-            var chartRvi = {{ chart_rvi|tojson|safe }};
-            var chartAdLine = {{ chart_ad_line|tojson|safe }};
-            var chartPsar = {{ chart_psar|tojson|safe }};
-
-            // Helper function to ensure data length matches labels
-            function ensureDataLength(data, length) {
-                if (data.length < length) {
-                    return data.concat(Array(length - data.length).fill(null)); // Use null for missing data
-                } else if (data.length > length) {
-                    return data.slice(0, length);
-                }
-                return data;
-            }
 
             // Price Chart
             if (document.getElementById('priceChart') && chartLabels.length > 0 && chartPrices.length > 0) {
@@ -264,26 +230,17 @@
                     data: {
                         labels: chartLabels,
                         datasets: [{
-                            label: 'Price (USD) - Last 60 Days',
-                            data: ensureDataLength(chartPrices, chartLabels.length),
+                            label: 'Price (USD) - Last 30 Days',
+                            data: chartPrices,
                             borderColor: '#00ffcc',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true // Allow gaps in data
+                            fill: false
                         }]
                     },
                     options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: false, 
-                                title: { display: true, text: 'Price (USD)', color: '#00ffcc' },
-                                suggestedMin: 0 // Prevent negative scaling issues
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#00ffcc' } }
-                        },
-                        plugins: { legend: { labels: { color: '#00ffcc' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
+                        scales: { y: { beginAtZero: false, title: { display: true, text: 'Price (USD)', color: '#00ffcc' } },
+                                x: { title: { display: true, text: 'Days', color: '#00ffcc' } } },
+                        plugins: { legend: { labels: { color: '#00ffcc' } } }
                     }
                 });
             }
@@ -296,38 +253,28 @@
                         labels: chartLabels,
                         datasets: [{
                             label: 'RSI',
-                            data: ensureDataLength(chartRsi, chartLabels.length),
+                            data: chartRsi,
                             borderColor: '#ff6384',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }, {
                             label: 'Overbought (70)',
-                            data: Array(chartLabels.length).fill(70),
+                            data: Array(chartRsi.length).fill(70),
                             borderColor: '#ffcd56',
                             borderDash: [5, 5],
                             fill: false
                         }, {
                             label: 'Oversold (30)',
-                            data: Array(chartLabels.length).fill(30),
+                            data: Array(chartRsi.length).fill(30),
                             borderColor: '#36a2eb',
                             borderDash: [5, 5],
                             fill: false
                         }]
                     },
                     options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                max: 100, 
-                                title: { display: true, text: 'RSI', color: '#ff6384' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#ff6384' } }
-                        },
-                        plugins: { legend: { labels: { color: '#ff6384' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
+                        scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'RSI', color: '#ff6384' } },
+                                x: { title: { display: true, text: 'Days', color: '#ff6384' } } },
+                        plugins: { legend: { labels: { color: '#ff6384' } } }
                     }
                 });
             }
@@ -340,32 +287,22 @@
                         labels: chartLabels,
                         datasets: [{
                             label: 'MACD',
-                            data: ensureDataLength(chartMacd, chartLabels.length),
+                            data: chartMacd,
                             borderColor: '#4bc0c0',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }, {
                             label: 'Signal',
-                            data: ensureDataLength(chartSignal, chartLabels.length),
+                            data: chartSignal,
                             borderColor: '#ff9f40',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }]
                     },
                     options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                title: { display: true, text: 'MACD', color: '#4bc0c0' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#4bc0c0' } }
-                        },
-                        plugins: { legend: { labels: { color: '#4bc0c0' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
+                        scales: { y: { beginAtZero: true, title: { display: true, text: 'MACD', color: '#4bc0c0' } },
+                                x: { title: { display: true, text: 'Days', color: '#4bc0c0' } } },
+                        plugins: { legend: { labels: { color: '#4bc0c0' } } }
                     }
                 });
             }
@@ -378,25 +315,16 @@
                         labels: chartLabels,
                         datasets: [{
                             label: 'Volume (USD)',
-                            data: ensureDataLength(chartVolumes, chartLabels.length),
+                            data: chartVolumes,
                             backgroundColor: 'rgba(54, 162, 235, 0.5)',
                             borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 1,
-                            spanGaps: true
+                            borderWidth: 1
                         }]
                     },
                     options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                title: { display: true, text: 'Volume (USD)', color: '#36a2eb' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#36a2eb' } }
-                        },
-                        plugins: { legend: { labels: { color: '#36a2eb' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
+                        scales: { y: { beginAtZero: true, title: { display: true, text: 'Volume (USD)', color: '#36a2eb' } },
+                                x: { title: { display: true, text: 'Days', color: '#36a2eb' } } },
+                        plugins: { legend: { labels: { color: '#36a2eb' } } }
                     }
                 });
             }
@@ -406,35 +334,25 @@
                 new Chart(document.getElementById('smaEmaChart').getContext('2d'), {
                     type: 'line',
                     data: {
-                        labels: chartLabels,
+                        labels: chartLabels.slice(chartSma.length - 1),
                         datasets: [{
                             label: 'SMA (20)',
-                            data: ensureDataLength(chartSma, chartLabels.length),
+                            data: chartSma,
                             borderColor: '#ffce56',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }, {
                             label: 'EMA (12)',
-                            data: ensureDataLength(chartEma, chartLabels.length),
+                            data: chartEma.slice(chartSma.length - 1),
                             borderColor: '#4bc0c0',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }]
                     },
                     options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: false, 
-                                title: { display: true, text: 'Price (USD)', color: '#ffce56' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#ffce56' } }
-                        },
-                        plugins: { legend: { labels: { color: '#ffce56' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
+                        scales: { y: { beginAtZero: false, title: { display: true, text: 'Price (USD)', color: '#ffce56' } },
+                                x: { title: { display: true, text: 'Days', color: '#ffce56' } } },
+                        plugins: { legend: { labels: { color: '#ffce56' } } }
                     }
                 });
             }
@@ -444,42 +362,31 @@
                 new Chart(document.getElementById('bollingerChart').getContext('2d'), {
                     type: 'line',
                     data: {
-                        labels: chartLabels,
+                        labels: chartLabels.slice(chartUpperBb.length - 1),
                         datasets: [{
                             label: 'Price',
-                            data: ensureDataLength(chartPrices, chartLabels.length),
+                            data: chartPrices.slice(chartUpperBb.length - 1),
                             borderColor: '#00ffcc',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }, {
                             label: 'Upper Bollinger Band',
-                            data: ensureDataLength(chartUpperBb, chartLabels.length),
+                            data: chartUpperBb,
                             borderColor: '#ff6384',
                             borderDash: [5, 5],
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }, {
                             label: 'Lower Bollinger Band',
-                            data: ensureDataLength(chartLowerBb, chartLabels.length),
+                            data: chartLowerBb,
                             borderColor: '#36a2eb',
                             borderDash: [5, 5],
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }]
                     },
                     options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: false, 
-                                title: { display: true, text: 'Price (USD)', color: '#00ffcc' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#00ffcc' } }
-                        },
-                        plugins: { legend: { labels: { color: '#00ffcc' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
+                        scales: { y: { beginAtZero: false, title: { display: true, text: 'Price (USD)', color: '#00ffcc' } },
+                                x: { title: { display: true, text: 'Days', color: '#00ffcc' } } },
+                        plugins: { legend: { labels: { color: '#00ffcc' } } }
                     }
                 });
             }
@@ -489,48 +396,37 @@
                 new Chart(document.getElementById('stochasticChart').getContext('2d'), {
                     type: 'line',
                     data: {
-                        labels: chartLabels,
+                        labels: chartLabels.slice(chartKstoch.length - 1),
                         datasets: [{
                             label: '%K',
-                            data: ensureDataLength(chartKstoch, chartLabels.length),
+                            data: chartKstoch,
                             borderColor: '#ff9f40',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }, {
                             label: '%D',
-                            data: ensureDataLength(chartDstoch, chartLabels.length),
+                            data: chartDstoch,
                             borderColor: '#4bc0c0',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true
+                            fill: false
                         }, {
                             label: 'Overbought (80)',
-                            data: Array(chartLabels.length).fill(80),
+                            data: Array(chartKstoch.length).fill(80),
                             borderColor: '#ffcd56',
                             borderDash: [5, 5],
                             fill: false
                         }, {
                             label: 'Oversold (20)',
-                            data: Array(chartLabels.length).fill(20),
+                            data: Array(chartKstoch.length).fill(20),
                             borderColor: '#36a2eb',
                             borderDash: [5, 5],
                             fill: false
                         }]
                     },
                     options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                max: 100, 
-                                title: { display: true, text: 'Stochastic (%)', color: '#ff9f40' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#ff9f40' } }
-                        },
-                        plugins: { legend: { labels: { color: '#ff9f40' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
+                        scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Stochastic (%)', color: '#ff9f40' } },
+                                x: { title: { display: true, text: 'Days', color: '#ff9f40' } } },
+                        plugins: { legend: { labels: { color: '#ff9f40' } } }
                     }
                 });
             }
@@ -543,222 +439,16 @@
                         labels: chartLabels,
                         datasets: [{
                             label: 'On-Balance Volume',
-                            data: ensureDataLength(chartObv, chartLabels.length),
+                            data: chartObv,
                             borderColor: '#ff5733',
                             tension: 0.1,
-                            fill: false,
-                            spanGaps: true
-                        }]
-                    },
-                    options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                title: { display: true, text: 'OBV', color: '#ff5733' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#ff5733' } }
-                        },
-                        plugins: { legend: { labels: { color: '#ff5733' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
-                    }
-                });
-            }
-
-            // Ichimoku Cloud Chart
-            if (document.getElementById('ichimokuChart') && chartLabels.length > 0 && chartTenkan.length > 0) {
-                new Chart(document.getElementById('ichimokuChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'Tenkan-sen',
-                            data: ensureDataLength(chartTenkan, chartLabels.length),
-                            borderColor: '#ff9f40',
-                            tension: 0.1,
-                            fill: false,
-                            spanGaps: true
-                        }, {
-                            label: 'Kijun-sen',
-                            data: ensureDataLength(chartKijun, chartLabels.length),
-                            borderColor: '#4bc0c0',
-                            tension: 0.1,
-                            fill: false,
-                            spanGaps: true
-                        }, {
-                            label: 'Senkou Span A',
-                            data: ensureDataLength(chartSenkouA, chartLabels.length),
-                            borderColor: '#ff6384',
-                            tension: 0.1,
-                            fill: '+1',
-                            spanGaps: true
-                        }, {
-                            label: 'Senkou Span B',
-                            data: ensureDataLength(chartSenkouB, chartLabels.length),
-                            borderColor: '#36a2eb',
-                            tension: 0.1,
-                            fill: false,
-                            spanGaps: true
-                        }]
-                    },
-                    options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: false, 
-                                title: { display: true, text: 'Price (USD)', color: '#ff9f40' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#ff9f40' } }
-                        },
-                        plugins: { legend: { labels: { color: '#ff9f40' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
-                    }
-                });
-            }
-
-            // ATR Chart
-            if (document.getElementById('atrChart') && chartLabels.length > 0 && chartAtr.length > 0) {
-                new Chart(document.getElementById('atrChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'ATR',
-                            data: ensureDataLength(chartAtr, chartLabels.length),
-                            borderColor: '#ffce56',
-                            tension: 0.1,
-                            fill: false,
-                            spanGaps: true
-                        }]
-                    },
-                    options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                title: { display: true, text: 'ATR', color: '#ffce56' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#ffce56' } }
-                        },
-                        plugins: { legend: { labels: { color: '#ffce56' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
-                    }
-                });
-            }
-
-            // RVI Chart
-            if (document.getElementById('rviChart') && chartLabels.length > 0 && chartRvi.length > 0) {
-                new Chart(document.getElementById('rviChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'RVI',
-                            data: ensureDataLength(chartRvi, chartLabels.length),
-                            borderColor: '#4bc0c0',
-                            tension: 0.1,
-                            fill: false,
-                            spanGaps: true
-                        }, {
-                            label: 'Overbought (80)',
-                            data: Array(chartLabels.length).fill(80),
-                            borderColor: '#ffcd56',
-                            borderDash: [5, 5],
-                            fill: false
-                        }, {
-                            label: 'Oversold (20)',
-                            data: Array(chartLabels.length).fill(20),
-                            borderColor: '#36a2eb',
-                            borderDash: [5, 5],
                             fill: false
                         }]
                     },
                     options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                max: 100, 
-                                title: { display: true, text: 'RVI (%)', color: '#4bc0c0' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#4bc0c0' } }
-                        },
-                        plugins: { legend: { labels: { color: '#4bc0c0' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
-                    }
-                });
-            }
-
-            // A/D Line Chart
-            if (document.getElementById('adLineChart') && chartLabels.length > 0 && chartAdLine.length > 0) {
-                new Chart(document.getElementById('adLineChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'Accumulation/Distribution Line',
-                            data: ensureDataLength(chartAdLine, chartLabels.length),
-                            borderColor: '#ff5733',
-                            tension: 0.1,
-                            fill: false,
-                            spanGaps: true
-                        }]
-                    },
-                    options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                title: { display: true, text: 'A/D Line', color: '#ff5733' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#ff5733' } }
-                        },
-                        plugins: { legend: { labels: { color: '#ff5733' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
-                    }
-                });
-            }
-
-            // Parabolic SAR Chart
-            if (document.getElementById('psarChart') && chartLabels.length > 0 && chartPsar.length > 0) {
-                new Chart(document.getElementById('psarChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'Price',
-                            data: ensureDataLength(chartPrices, chartLabels.length),
-                            borderColor: '#00ffcc',
-                            tension: 0.1,
-                            fill: false,
-                            spanGaps: true
-                        }, {
-                            label: 'Parabolic SAR',
-                            data: ensureDataLength(chartPsar, chartLabels.length),
-                            borderColor: '#ff9f40',
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
-                            fill: false,
-                            spanGaps: true
-                        }]
-                    },
-                    options: {
-                        scales: { 
-                            y: { 
-                                beginAtZero: false, 
-                                title: { display: true, text: 'Price (USD)', color: '#00ffcc' },
-                                suggestedMin: 0
-                            },
-                            x: { title: { display: true, text: 'Days', color: '#00ffcc' } }
-                        },
-                        plugins: { legend: { labels: { color: '#00ffcc' } } },
-                        maintainAspectRatio: false,
-                        responsive: true
+                        scales: { y: { beginAtZero: true, title: { display: true, text: 'OBV', color: '#ff5733' } },
+                                x: { title: { display: true, text: 'Days', color: '#ff5733' } } },
+                        plugins: { legend: { labels: { color: '#ff5733' } } }
                     }
                 });
             }
