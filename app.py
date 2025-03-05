@@ -102,6 +102,18 @@ def calculate_obv(prices, volumes):
             obv.append(obv[-1])
     return obv
 
+def calculate_atr(highs, lows, closes, period=14):
+    true_ranges = []
+    for i in range(1, len(closes)):
+        high_low = highs[i] - lows[i]
+        high_prev_close = abs(highs[i] - closes[i-1])
+        low_prev_close = abs(lows[i] - closes[i-1])
+        true_range = max(high_low, high_prev_close, low_prev_close)
+        true_ranges.append(true_range)
+    if len(true_ranges) < period:
+        return [0] * len(closes[1:])  # Return zeros if not enough data
+    return np.convolve(true_ranges, np.ones(period)/period, mode='valid').tolist()
+
 def analyze_elliott_waves(prices):
     if len(prices) < 8:
         return "Insufficient data for Elliott Wave analysis."
@@ -171,8 +183,19 @@ def get_historical_data(coin_id):
     logger.debug(f"API response status: {response.status_code}, text: {response.text}")
     if response.status_code == 200:
         data = response.json()
-        prices = [price[1] for price in data['prices']]
+        prices = [price[1] for price in data['prices']]  # Closing prices
         volumes = [volume[1] for volume in data['total_volumes']]
+        # Extract highs and lows from ohlc data (CoinGecko provides this in market_chart)
+        ohlc = data.get('ohlc', [])  # Fallback to empty if ohlc not available
+        if not ohlc and 'prices' in data:
+            ohlc = [[p[0], p[1], p[1], p[1], p[1]] for p in data['prices']]  # Approximate if no ohlc
+        highs = [entry[2] for entry in ohlc]  # High
+        lows = [entry[3] for entry in ohlc]    # Low
+        closes = [entry[4] for entry in ohlc]  # Close (use prices if ohlc not available)
+        if not highs or not lows or not closes:
+            highs = prices
+            lows = prices
+            closes = prices  # Fallback to prices if ohlc fails
         labels = [f"Day {i+1}" for i in range(len(prices))]
         rsi_values = calculate_rsi(prices)
         macd_line, signal_line = calculate_macd(prices)
@@ -180,11 +203,13 @@ def get_historical_data(coin_id):
         upper_bb, lower_bb = calculate_bollinger_bands(prices)[1:]  # Skip SMA for now
         k_stoch, d_stoch = calculate_stochastic(prices)
         obv = calculate_obv(prices, volumes)
+        atr_values = calculate_atr(highs, lows, closes)
         elliott_analysis = analyze_elliott_waves(prices)
         in_depth_analysis = get_in_depth_analysis(prices, volumes, rsi_values, macd_line, signal_line, k_stoch, d_stoch)
-        return labels, prices, volumes, rsi_values, macd_line, signal_line, sma, ema, upper_bb, lower_bb, k_stoch, d_stoch, obv, elliott_analysis, in_depth_analysis
+        return (labels, prices, volumes, rsi_values, macd_line, signal_line, sma, ema, upper_bb, lower_bb,
+                k_stoch, d_stoch, obv, atr_values, elliott_analysis, in_depth_analysis)
     logger.error(f"Failed to fetch data for {coin_id}: {response.status_code} - {response.text}")
-    return [], [], [], [], [], [], [], [], [], [], [], [], [], "Error fetching historical data.", "Error fetching historical data."
+    return ([], [], [], [], [], [], [], [], [], [], [], [], [], [], "Error fetching historical data.", "Error fetching historical data.")
 
 def get_real_time_price(coin_id):
     logger.debug(f"Fetching real-time price for coin_id: {coin_id}")
@@ -246,6 +271,7 @@ def home():
     chart_k_stoch = []
     chart_d_stoch = []
     chart_obv = []
+    chart_atr = []
     elliott_analysis = ""
     in_depth_analysis = ""
     real_time_price = 0
@@ -273,7 +299,7 @@ def home():
                 }
                 (chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal,
                  chart_sma, chart_ema, chart_upper_bb, chart_lower_bb, chart_k_stoch, chart_d_stoch,
-                 chart_obv, elliott_analysis, in_depth_analysis) = get_historical_data(selected_coin_id)
+                 chart_obv, chart_atr, elliott_analysis, in_depth_analysis) = get_historical_data(selected_coin_id)
                 real_time_price = get_real_time_price(selected_coin_id)
 
                 # Portfolio email (daily summary) - Test with frequent check
@@ -295,7 +321,8 @@ def home():
                           chart_sma=chart_sma, chart_ema=chart_ema,
                           chart_upper_bb=chart_upper_bb, chart_lower_bb=chart_lower_bb,
                           chart_k_stoch=chart_k_stoch, chart_d_stoch=chart_d_stoch,
-                          chart_obv=chart_obv, elliott_analysis=elliott_analysis,
+                          chart_obv=chart_obv, chart_atr=chart_atr,
+                          elliott_analysis=elliott_analysis,
                           in_depth_analysis=in_depth_analysis, real_time_price=real_time_price)
 
 @app.route("/portfolio", methods=["GET", "POST"])
