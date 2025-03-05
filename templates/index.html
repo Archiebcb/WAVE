@@ -121,56 +121,147 @@
         <div class="chart-container">
             <canvas id="priceChart"></canvas>
         </div>
+        <div class="chart-container">
+            <canvas id="rsiChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="macdChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="volumeChart"></canvas>
+        </div>
 
         <script>
-            // Define chart data as JavaScript variables
             var chartLabels = {{ chart_labels|tojson|safe }};
-            var chartData = {{ chart_data|tojson|safe }};
+            var chartPrices = {{ chart_prices|tojson|safe }};
+            var chartVolumes = {{ chart_volumes|tojson|safe }};
+            var chartRsi = {{ chart_rsi|tojson|safe }};
+            var chartMacd = {{ chart_macd|tojson|safe }};
+            var chartSignal = {{ chart_signal|tojson|safe }};
 
-            // Initialize chart only if data is present
-            if (document.getElementById('priceChart') && chartLabels.length > 0 && chartData.length > 0) {
-                console.log("Chart data:", chartLabels, chartData); // Debug log
-                const ctx = document.getElementById('priceChart').getContext('2d');
-                let chart = new Chart(ctx, {
+            // Price Chart
+            if (document.getElementById('priceChart') && chartLabels.length > 0 && chartPrices.length > 0) {
+                new Chart(document.getElementById('priceChart').getContext('2d'), {
                     type: 'line',
                     data: {
                         labels: chartLabels,
                         datasets: [{
-                            label: 'Price (USD) - Last 7 Days',
-                            data: chartData,
+                            label: 'Price (USD) - Last 30 Days',
+                            data: chartPrices,
                             borderColor: '#00ffcc',
                             tension: 0.1,
                             fill: false
                         }]
                     },
                     options: {
-                        scales: {
-                            y: {
-                                beginAtZero: false,
-                                title: { display: true, text: 'Price (USD)', color: '#00ffcc' }
-                            },
-                            x: {
-                                title: { display: true, text: 'Days', color: '#00ffcc' }
-                            }
-                        },
-                        plugins: {
-                            legend: { labels: { color: '#00ffcc' } }
-                        }
+                        scales: { y: { beginAtZero: false, title: { display: true, text: 'Price (USD)', color: '#00ffcc' } },
+                                x: { title: { display: true, text: 'Days', color: '#00ffcc' } } },
+                        plugins: { legend: { labels: { color: '#00ffcc' } } }
                     }
                 });
-            } else {
-                console.log("No chart data available:", chartLabels, chartData);
+            }
+
+            // RSI Chart
+            if (document.getElementById('rsiChart') && chartLabels.length > 0 && chartRsi.length > 0) {
+                new Chart(document.getElementById('rsiChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'RSI',
+                            data: chartRsi,
+                            borderColor: '#ff6384',
+                            tension: 0.1,
+                            fill: false
+                        }, {
+                            label: 'Overbought (70)',
+                            data: Array(chartRsi.length).fill(70),
+                            borderColor: '#ffcd56',
+                            borderDash: [5, 5],
+                            fill: false
+                        }, {
+                            label: 'Oversold (30)',
+                            data: Array(chartRsi.length).fill(30),
+                            borderColor: '#36a2eb',
+                            borderDash: [5, 5],
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'RSI', color: '#ff6384' } },
+                                x: { title: { display: true, text: 'Days', color: '#ff6384' } } },
+                        plugins: { legend: { labels: { color: '#ff6384' } } }
+                    }
+                });
+            }
+
+            // MACD Chart
+            if (document.getElementById('macdChart') && chartLabels.length > 0 && chartMacd.length > 0) {
+                new Chart(document.getElementById('macdChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'MACD',
+                            data: chartMacd,
+                            borderColor: '#4bc0c0',
+                            tension: 0.1,
+                            fill: false
+                        }, {
+                            label: 'Signal',
+                            data: chartSignal,
+                            borderColor: '#ff9f40',
+                            tension: 0.1,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: { y: { beginAtZero: true, title: { display: true, text: 'MACD', color: '#4bc0c0' } },
+                                x: { title: { display: true, text: 'Days', color: '#4bc0c0' } } },
+                        plugins: { legend: { labels: { color: '#4bc0c0' } } }
+                    }
+                });
+            }
+
+            // Volume Chart
+            if (document.getElementById('volumeChart') && chartLabels.length > 0 && chartVolumes.length > 0) {
+                new Chart(document.getElementById('volumeChart').getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'Volume (USD)',
+                            data: chartVolumes,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: { y: { beginAtZero: true, title: { display: true, text: 'Volume (USD)', color: '#36a2eb' } },
+                                x: { title: { display: true, text: 'Days', color: '#36a2eb' } } },
+                        plugins: { legend: { labels: { color: '#36a2eb' } } }
+                    }
+                });
             }
         </script>
     {% endif %}
 
     <script>
         function filterOptions() {
+            console.log("Filtering with input:", document.getElementById("searchInput").value); // Debug log
             let input = document.getElementById("searchInput").value.toLowerCase();
             let select = document.getElementById("ticker");
+            console.log("Select element:", select); // Debug log
+            if (!select) {
+                console.error("Ticker select element not found!");
+                return;
+            }
             let options = select.options;
+            console.log("Options length:", options.length); // Debug log
             for (let i = 0; i < options.length; i++) {
                 let text = options[i].text.toLowerCase();
+                console.log(`Checking option ${i}: ${text}`); // Debug log
                 if (text.includes(input)) {
                     options[i].style.display = "";
                 } else {
