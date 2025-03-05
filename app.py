@@ -21,6 +21,7 @@ def get_historical_data(coin_id):
         labels = [f"Day {i+1}" for i in range(len(prices))]
         values = [price[1] for price in prices]
         return labels, values
+    print(f"Error fetching data for {coin_id}: {response.status_code} - {response.text}")
     return [], []
 
 @app.route("/", methods=["GET", "POST"])

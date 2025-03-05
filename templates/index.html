@@ -121,6 +121,47 @@
         <div class="chart-container">
             <canvas id="priceChart"></canvas>
         </div>
+
+        <script>
+            // Define chart data as JavaScript variables
+            var chartLabels = {{ chart_labels|tojson|safe }};
+            var chartData = {{ chart_data|tojson|safe }};
+
+            // Initialize chart only if data is present
+            if (document.getElementById('priceChart') && chartLabels.length > 0 && chartData.length > 0) {
+                console.log("Chart data:", chartLabels, chartData); // Debug log
+                const ctx = document.getElementById('priceChart').getContext('2d');
+                let chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'Price (USD) - Last 7 Days',
+                            data: chartData,
+                            borderColor: '#00ffcc',
+                            tension: 0.1,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                title: { display: true, text: 'Price (USD)', color: '#00ffcc' }
+                            },
+                            x: {
+                                title: { display: true, text: 'Days', color: '#00ffcc' }
+                            }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#00ffcc' } }
+                        }
+                    }
+                });
+            } else {
+                console.log("No chart data available:", chartLabels, chartData);
+            }
+        </script>
     {% endif %}
 
     <script>
@@ -136,39 +177,6 @@
                     options[i].style.display = "none";
                 }
             }
-        }
-
-        let chart = null;
-        if (document.getElementById('priceChart') && crypto_data && !crypto_data.error) {
-            const ctx = document.getElementById('priceChart').getContext('2d');
-            if (chart) chart.destroy();
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: {{ chart_labels|tojson|safe }},
-                    datasets: [{
-                        label: 'Price (USD) - Last 7 Days',
-                        data: {{ chart_data|tojson|safe }},
-                        borderColor: '#00ffcc',
-                        tension: 0.1,
-                        fill: false
-                    }]
-                },
-                options: {
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            title: { display: true, text: 'Price (USD)', color: '#00ffcc' }
-                        },
-                        x: {
-                            title: { display: true, text: 'Days', color: '#00ffcc' }
-                        }
-                    },
-                    plugins: {
-                        legend: { labels: { color: '#00ffcc' } }
-                    }
-                }
-            });
         }
     </script>
 </body>
