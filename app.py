@@ -6,9 +6,6 @@ from email.mime.text import MIMEText
 import json
 import os
 from datetime import datetime
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
-from sklearn.preprocessing import MinMaxScaler
 
 app = Flask(__name__)
 
@@ -20,15 +17,6 @@ def get_coingecko_coins():
     return []
 
 COIN_LIST = get_coingecko_coins()
-
-def build_lstm_model(input_shape):
-    model = Sequential([
-        LSTM(50, return_sequences=True, input_shape=input_shape),
-        LSTM(50),
-        Dense(1)
-    ])
-    model.compile(optimizer='adam', loss='mse')
-    return model
 
 def calculate_rsi(prices, period=14):
     changes = np.diff(prices)
@@ -299,19 +287,6 @@ def get_real_time_price(coin_id):
         return data.get(coin_id, {}).get('usd', 0)
     return 0
 
-def predict_trend(prices, days=60):
-    scaler = MinMaxScaler()
-    scaled_prices = scaler.fit_transform(np.array(prices).reshape(-1, 1))
-    X = np.array([scaled_prices[i:i+days] for i in range(len(prices)-days)])
-    y = scaled_prices[days:]
-    if len(X) == 0 or len(y) == 0:
-        return prices[-1]  # Return last price if not enough data
-    model = build_lstm_model((days, 1))
-    model.fit(X, y, epochs=10, verbose=0, batch_size=32)
-    last_sequence = scaled_prices[-days:]
-    prediction = model.predict(last_sequence.reshape(1, days, 1))
-    return scaler.inverse_transform(prediction)[0][0]
-
 def send_email(subject, body, to_email):
     gmail_user = 'your-email@gmail.com'  # Replace with your Gmail
     gmail_password = 'your-app-password'  # Replace with your App Password
@@ -365,7 +340,6 @@ def home():
     real_time_price = 0
     portfolio_value = 0
     alert_threshold = None
-    predicted_price = None
     selected_coin_id = request.form.get("ticker") if request.method == "POST" else None
     portfolio = json.loads(request.cookies.get('portfolio', '[]')) if request.cookies.get('portfolio') else []
 
@@ -404,7 +378,6 @@ def home():
                  chart_obv, chart_tenkan, chart_kijun, chart_senkou_a, chart_senkou_b,
                  chart_atr, chart_rvi, chart_ad_line, chart_psar, elliott_analysis) = get_historical_data(selected_coin_id)
                 real_time_price = get_real_time_price(selected_coin_id)
-                predicted_price = predict_trend(chart_prices) if len(chart_prices) > 60 else None
                 if portfolio:
                     portfolio_value = sum(item["amount"] * get_real_time_price(item["ticker"]) for item in portfolio if get_real_time_price(item["ticker"]))
             else:
@@ -423,7 +396,7 @@ def home():
                           chart_rvi=chart_rvi, chart_ad_line=chart_ad_line,
                           chart_psar=chart_psar, elliott_analysis=elliott_analysis,
                           real_time_price=real_time_price, portfolio_value=portfolio_value,
-                          alert_threshold=alert_threshold, predicted_price=predicted_price)
+                          alert_threshold=alert_threshold)
 
 if __name__ == "__main__":
     app.run(debug=True)

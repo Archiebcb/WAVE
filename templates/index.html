@@ -82,7 +82,7 @@
             margin-right: auto;
             box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
         }
-        .real-time-price, .predicted-price {
+        .real-time-price {
             margin-top: 10px;
             font-size: 1.5em;
             color: #00ffcc;
@@ -104,7 +104,7 @@
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             padding: 10px;
-            height: 300px;
+            height: 300px; /* Fixed height for consistency */
         }
         .chart-container.dragging {
             opacity: 0.7;
@@ -163,11 +163,6 @@
         <div class="real-time-price">
             Real-Time Price: ${{ real_time_price if real_time_price else 'N/A' }}
         </div>
-        {% if predicted_price %}
-            <div class="predicted-price">
-                Predicted Next Price: ${{ predicted_price|round(2) if predicted_price else 'N/A' }}
-            </div>
-        {% endif %}
         <div class="chart-container" draggable="true">
             <canvas id="priceChart"></canvas>
         </div>
@@ -274,7 +269,7 @@
                             borderColor: '#00ffcc',
                             tension: 0.1,
                             fill: false,
-                            spanGaps: true
+                            spanGaps: true // Allow gaps in data
                         }]
                     },
                     options: {
@@ -282,7 +277,7 @@
                             y: { 
                                 beginAtZero: false, 
                                 title: { display: true, text: 'Price (USD)', color: '#00ffcc' },
-                                suggestedMin: 0
+                                suggestedMin: 0 // Prevent negative scaling issues
                             },
                             x: { title: { display: true, text: 'Days', color: '#00ffcc' } }
                         },
