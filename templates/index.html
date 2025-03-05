@@ -82,6 +82,18 @@
             margin-right: auto;
             box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
         }
+        .real-time-price {
+            margin-top: 10px;
+            font-size: 1.5em;
+            color: #00ffcc;
+            text-shadow: 0 0 5px #00ffcc;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
         .chart-container {
             margin-top: 20px;
             max-width: 600px;
@@ -128,6 +140,9 @@
                 <p>Market Cap: {{ crypto_data.market_cap }}</p>
                 <p>24h Volume: {{ crypto_data.volume_24h }}</p>
             {% endif %}
+        </div>
+        <div class="real-time-price">
+            Real-Time Price: ${{ real_time_price if real_time_price else 'N/A' }}
         </div>
         <div class="chart-container">
             <canvas id="priceChart"></canvas>
@@ -283,6 +298,22 @@
                 }
             }
         }
+
+        // Real-time price update (polling every 10 seconds)
+        function updateRealTimePrice() {
+            let selectedCoin = document.getElementById("ticker").value;
+            if (selectedCoin) {
+                fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${selectedCoin}&vs_currencies=usd`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let price = data[selectedCoin]?.usd || 0;
+                        document.querySelector('.real-time-price').textContent = `Real-Time Price: $${price.toFixed(2)}`;
+                    })
+                    .catch(error => console.error("Error fetching real-time price:", error));
+            }
+        }
+        setInterval(updateRealTimePrice, 10000); // Update every 10 seconds
+        document.addEventListener("DOMContentLoaded", updateRealTimePrice); // Initial update
     </script>
 </body>
 </html>

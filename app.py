@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request
 import requests
 import numpy as np
+import time
 
 app = Flask(__name__)
 
@@ -38,10 +39,9 @@ def calculate_macd(prices, slow=26, fast=12, signal=9):
     return macd[-len(signal_line):].tolist(), signal_line.tolist()
 
 def analyze_elliott_waves(prices):
-    if len(prices) < 8:  # Need at least 8 points for a basic 5-3 pattern
+    if len(prices) < 8:
         return "Insufficient data for Elliott Wave analysis."
     
-    # Simple peak/trough detection (basic approximation)
     peaks = []
     troughs = []
     for i in range(1, len(prices) - 1):
@@ -53,7 +53,6 @@ def analyze_elliott_waves(prices):
     if not peaks or not troughs:
         return "No clear wave pattern detected."
 
-    # Approximate 5-wave impulse and 3-wave correction
     wave_analysis = "Elliott Wave Breakdown:\n"
     if len(peaks) >= 5 and len(troughs) >= 3:
         wave_analysis += "Potential 5-Wave Impulse:\n"
@@ -82,6 +81,14 @@ def get_historical_data(coin_id):
     print(f"Error fetching data for {coin_id}: {response.status_code} - {response.text}")
     return [], [], [], [], [], [], "Error fetching historical data."
 
+def get_real_time_price(coin_id):
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        return data.get(coin_id, {}).get('usd', 0)
+    return 0
+
 @app.route("/", methods=["GET", "POST"])
 def home():
     crypto_data = None
@@ -92,11 +99,11 @@ def home():
     chart_macd = []
     chart_signal = []
     elliott_analysis = ""
-    if request.method == "POST":
-        coin_id = request.form["ticker"]
-        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+    real_time_price = 0
+    selected_coin_id = request.form.get("ticker") if request.method == "POST" else None
+    if selected_coin_id:
+        url = f"https://api.coingecko.com/api/v3/coins/{selected_coin_id}"
         response = requests.get(url)
-        
         if response.status_code == 200:
             data = response.json()
             crypto_data = {
@@ -106,7 +113,8 @@ def home():
                 "market_cap": f"${data['market_data']['market_cap']['usd']:,.0f}",
                 "volume_24h": f"${data['market_data']['total_volume']['usd']:,.0f}"
             }
-            chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal, elliott_analysis = get_historical_data(coin_id)
+            chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal, elliott_analysis = get_historical_data(selected_coin_id)
+            real_time_price = get_real_time_price(selected_coin_id)
         else:
             crypto_data = {"error": "Unable to fetch data for this coin"}
 
@@ -114,7 +122,7 @@ def home():
                           chart_labels=chart_labels, chart_prices=chart_prices, 
                           chart_volumes=chart_volumes, chart_rsi=chart_rsi, 
                           chart_macd=chart_macd, chart_signal=chart_signal, 
-                          elliott_analysis=elliott_analysis)
+                          elliott_analysis=elliott_analysis, real_time_price=real_time_price)
 
 if __name__ == "__main__":
     app.run(debug=True)
