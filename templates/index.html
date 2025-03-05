@@ -13,81 +13,103 @@
             padding: 20px;
             height: 100vh;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         h1 {
-            font-size: 3em;
+            font-size: 3.5em;
             color: #00ffcc;
-            text-shadow: 0 0 10px #00ffcc, 0 0 20px #00ffcc, 0 0 30px #00e6b8;
-            margin-bottom: 20px;
-            animation: glow 1.5s ease-in-out infinite alternate;
+            text-shadow: 0 0 15px #00ffcc, 0 0 30px #00e6b8, 0 0 50px #00cc99;
+            margin-bottom: 30px;
+            animation: glow 2s ease-in-out infinite alternate;
         }
         @keyframes glow {
-            from { text-shadow: 0 0 5px #00ffcc, 0 0 10px #00ffcc; }
-            to { text-shadow: 0 0 20px #00ffcc, 0 0 30px #00e6b8, 0 0 40px #00ffcc; }
+            from { text-shadow: 0 0 10px #00ffcc, 0 0 20px #00e6b8; }
+            to { text-shadow: 0 0 30px #00ffcc, 0 0 60px #00cc99, 0 0 80px #00ffcc; }
         }
         .search-container {
-            margin-bottom: 20px;
+            margin-bottom: 40px;
         }
         #searchInput {
-            width: 250px;
-            padding: 10px;
-            font-size: 1em;
+            width: 300px;
+            padding: 15px;
+            font-size: 1.2em;
             border: none;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #00ffcc;
             outline: none;
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
-            transition: box-shadow 0.3s;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.7);
+            transition: box-shadow 0.3s, transform 0.2s;
         }
         #searchInput:focus {
-            box-shadow: 0 0 20px rgba(0, 255, 204, 0.8);
+            box-shadow: 0 0 25px rgba(0, 255, 204, 1);
+            transform: scale(1.05);
         }
         select {
-            width: 250px;
-            padding: 10px;
-            font-size: 1em;
+            width: 300px;
+            padding: 15px;
+            font-size: 1.2em;
             border: none;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #00ffcc;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.7);
             appearance: none;
             cursor: pointer;
+            margin-right: 10px;
         }
         select option {
             background: #24243e;
+            color: #fff;
         }
-        button {
-            padding: 10px 20px;
-            font-size: 1em;
+        input[type="email"], input[type="number"] {
+            width: 200px;
+            padding: 10px;
+            margin: 5px;
             border: none;
             border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 10px;
             background: #00ffcc;
             color: #0f0c29;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
         }
         button:hover {
             transform: scale(1.1);
-            box-shadow: 0 0 20px #00ffcc;
+            box-shadow: 0 0 30px #00ffcc;
+            background: #00e6b8;
         }
         .result {
-            margin-top: 30px;
-            padding: 20px;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 10px;
-            max-width: 500px;
+            margin-top: 40px;
+            padding: 25px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 15px;
+            max-width: 600px;
             margin-left: auto;
             margin-right: auto;
-            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.5);
+            border: 1px solid #00ffcc;
         }
         .real-time-price {
-            margin-top: 10px;
-            font-size: 1.5em;
+            margin-top: 20px;
+            font-size: 1.8em;
             color: #00ffcc;
-            text-shadow: 0 0 5px #00ffcc;
+            text-shadow: 0 0 10px #00ffcc;
             animation: pulse 2s infinite;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            display: inline-block;
         }
         @keyframes pulse {
             0% { transform: scale(1); }
@@ -95,39 +117,61 @@
             100% { transform: scale(1); }
         }
         .chart-container {
-            margin-top: 20px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
+            margin: 30px auto;
+            max-width: 800px;
             position: relative;
             cursor: move;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 10px;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+            transition: transform 0.2s;
         }
         .chart-container.dragging {
-            opacity: 0.7;
+            opacity: 0.6;
+            transform: scale(1.02);
         }
-        .elliott-analysis {
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 10px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+        .elliott-analysis, .in-depth-analysis {
+            margin: 40px auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 15px;
+            max-width: 800px;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.5);
+            border: 1px solid #00ffcc;
             white-space: pre-wrap;
+            font-size: 1.1em;
+            color: #e0e0e0;
         }
         .portfolio-tracker, .alerts {
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 10px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+            margin: 40px auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 15px;
+            max-width: 800px;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.5);
+            border: 1px solid #00ffcc;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto !important;
+        }
+        @media (max-width: 800px) {
+            .chart-container, .elliott-analysis, .in-depth-analysis, .portfolio-tracker, .alerts {
+                max-width: 100%;
+                margin: 20px 0;
+            }
+            select, #searchInput {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            input[type="email"], input[type="number"] {
+                width: 100%;
+                margin: 5px 0;
+            }
+            button {
+                width: 100%;
+            }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -145,22 +189,25 @@
                 <option value="{{ coin.id }}">{{ coin.name }} ({{ coin.symbol.upper() }})</option>
             {% endfor %}
         </select>
+        <input type="email" name="portfolio_email" placeholder="Your Email for Portfolio" style="margin-left: 10px;">
+        <input type="email" name="alert_email" placeholder="Your Email for Alerts" style="margin-left: 10px;">
+        <input type="number" name="alert_threshold" placeholder="Alert Threshold ($)" step="0.01" style="margin-left: 10px;">
         <button type="submit">Get Data</button>
     </form>
 
     {% if crypto_data %}
         <div class="result">
             {% if crypto_data.error %}
-                <p>{{ crypto_data.error }}</p>
+                <p style="color: #ff4444;">{{ crypto_data.error }}</p>
             {% else %}
                 <h2>{{ crypto_data.ticker }} - {{ crypto_data.name }}</h2>
-                <p>Price: {{ crypto_data.price }}</p>
-                <p>Market Cap: {{ crypto_data.market_cap }}</p>
-                <p>24h Volume: {{ crypto_data.volume_24h }}</p>
+                <p>Price: <span style="color: #00ffcc;">{{ crypto_data.price }}</span></p>
+                <p>Market Cap: <span style="color: #00ffcc;">{{ crypto_data.market_cap }}</span></p>
+                <p>24h Volume: <span style="color: #00ffcc;">{{ crypto_data.volume_24h }}</span></p>
             {% endif %}
         </div>
         <div class="real-time-price">
-            Real-Time Price: ${{ real_time_price if real_time_price else 'N/A' }}
+            Real-Time Price: <span style="color: #00ffcc;">${{ real_time_price if real_time_price else 'N/A' }}</span>
         </div>
         <div class="chart-container" draggable="true">
             <canvas id="priceChart"></canvas>
@@ -189,23 +236,8 @@
         <div class="elliott-analysis">
             {{ elliott_analysis|safe }}
         </div>
-
-        <div class="portfolio-tracker">
-            <h3>Portfolio Tracker</h3>
-            <input type="text" id="portfolioTicker" name="portfolioTicker" placeholder="Ticker (e.g., bitcoin)">
-            <input type="number" id="portfolioAmount" name="portfolioAmount" placeholder="Amount" step="0.01">
-            <button type="submit" name="action" value="add_portfolio">Add</button>
-            <p>Total Value: ${{ portfolio_value if portfolio_value else 0.00 }}</p>
-        </div>
-
-        <div class="alerts">
-            <h3>Alert System</h3>
-            <input type="number" id="alertPrice" name="alertPrice" placeholder="Price Threshold" step="0.01">
-            <input type="email" id="userEmail" name="userEmail" placeholder="Your Email" required>
-            <button type="submit" name="action" value="set_alert">Set Alert</button>
-            {% if alert_threshold %}
-                <p>Alert set for ${{ alert_threshold }}</p>
-            {% endif %}
+        <div class="in-depth-analysis">
+            {{ in_depth_analysis|safe }}
         </div>
 
         <script>
@@ -484,19 +516,19 @@
 
     <script>
         function filterOptions() {
-            console.log("Filtering with input:", document.getElementById("searchInput").value);
+            console.log("Filtering with input:", document.getElementById("searchInput").value); // Debug log
             let input = document.getElementById("searchInput").value.toLowerCase();
             let select = document.getElementById("ticker");
-            console.log("Select element:", select);
+            console.log("Select element:", select); // Debug log
             if (!select) {
                 console.error("Ticker select element not found!");
                 return;
             }
             let options = select.options;
-            console.log("Options length:", options.length);
+            console.log("Options length:", options.length); // Debug log
             for (let i = 0; i < options.length; i++) {
                 let text = options[i].text.toLowerCase();
-                console.log(`Checking option ${i}: ${text}`);
+                console.log(`Checking option ${i}: ${text}`); // Debug log
                 if (text.includes(input)) {
                     options[i].style.display = "";
                 } else {
@@ -518,25 +550,8 @@
                     .catch(error => console.error("Error fetching real-time price:", error));
             }
         }
-        setInterval(updateRealTimePrice, 10000);
-        document.addEventListener("DOMContentLoaded", updateRealTimePrice);
-
-        // Portfolio and Alert Handling (Client-Side Sync)
-        function syncPortfolio() {
-            let portfolio = JSON.parse(document.cookie.match(new RegExp('(^| )portfolio=([^;]+)'))?.[2] || '[]');
-            let total = 0;
-            portfolio.forEach(item => {
-                fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${item.ticker}&vs_currencies=usd`)
-                    .then(response => response.json())
-                    .then(data => {
-                        let price = data[item.ticker]?.usd || 0;
-                        total += price * item.amount;
-                        document.querySelector('.portfolio-tracker p').textContent = `Total Value: $${total.toFixed(2)}`;
-                    });
-            });
-        }
-        document.addEventListener("DOMContentLoaded", syncPortfolio);
-        setInterval(syncPortfolio, 10000);
+        setInterval(updateRealTimePrice, 10000); // Update every 10 seconds
+        document.addEventListener("DOMContentLoaded", updateRealTimePrice); // Initial update
     </script>
 </body>
 </html>
