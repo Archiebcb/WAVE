@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WAVE Crypto Trading Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        .result { margin-top: 20px; }
+        select { width: 200px; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>WAVE Crypto Trading Tool</h1>
+    <form method="POST">
+        <label for="ticker">Select Cryptocurrency:</label>
+        <select id="ticker" name="ticker" required>
+            <option value="" disabled selected>Choose a coin</option>
+            {% for coin in coins %}
+                <option value="{{ coin.id }}">{{ coin.name }} ({{ coin.symbol.upper() }})</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Get Data</button>
+    </form>
+
+    {% if crypto_data %}
+        <div class="result">
+            {% if crypto_data.error %}
+                <p>{{ crypto_data.error }}</p>
+            {% else %}
+                <h2>{{ crypto_data.ticker }} - {{ crypto_data.name }}</h2>
+                <p>Price: {{ crypto_data.price }}</p>
+                <p>Market Cap: {{ crypto_data.market_cap }}</p>
+                <p>24h Volume: {{ crypto_data.volume_24h }}</p>
+            {% endif %}
+        </div>
+    {% endif %}
+</body>
+</html>
