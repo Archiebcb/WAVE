@@ -1,6 +1,11 @@
 from flask import Flask, render_template, request
 import requests
 import numpy as np
+import smtplib
+from email.mime.text import MIMEText
+import json
+import os
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -41,7 +46,7 @@ def calculate_macd(prices, slow=26, fast=12, signal=9):
 
 def calculate_bollinger_bands(prices, period=20, std_dev=2):
     sma = np.convolve(prices, np.ones(period) / period, mode='valid')
-    rolling_std = np.std(prices[:period])  # Initial std, will adjust with window
+    rolling_std = np.std(prices[:period])
     upper_band = [sma[0] + (std_dev * rolling_std)]
     lower_band = [sma[0] - (std_dev * rolling_std)]
     for i in range(period, len(prices)):
@@ -53,7 +58,7 @@ def calculate_bollinger_bands(prices, period=20, std_dev=2):
 
 def calculate_sma_ema(prices, sma_period=20, ema_period=12):
     sma = np.convolve(prices, np.ones(sma_period) / sma_period, mode='valid').tolist()
-    ema = [prices[0]]  # Initial value
+    ema = [prices[0]]
     multiplier = 2 / (ema_period + 1)
     for i in range(1, len(prices)):
         ema.append(prices[i] * multiplier + ema[-1] * (1 - multiplier))
@@ -69,7 +74,7 @@ def calculate_stochastic(prices, k_period=14, d_period=3):
         if window_high > window_low:
             k.append(100 * (prices[i + k_period - 1] - window_low) / (window_high - window_low))
         else:
-            k.append(50.0)  # Default if no range
+            k.append(50.0)
     d = np.convolve(k, np.ones(d_period) / d_period, mode='valid').tolist()
     return k, d
 
@@ -123,7 +128,7 @@ def get_historical_data(coin_id):
         rsi_values = calculate_rsi(prices)
         macd_line, signal_line = calculate_macd(prices)
         sma, ema = calculate_sma_ema(prices)
-        upper_bb, lower_bb = calculate_bollinger_bands(prices)[1:]  # Skip SMA for now
+        upper_bb, lower_bb = calculate_bollinger_bands(prices)[1:]
         k_stoch, d_stoch = calculate_stochastic(prices)
         obv = calculate_obv(prices, volumes)
         elliott_analysis = analyze_elliott_waves(prices)
@@ -138,6 +143,32 @@ def get_real_time_price(coin_id):
         data = response.json()
         return data.get(coin_id, {}).get('usd', 0)
     return 0
+
+def send_email(subject, body, to_email):
+    # Gmail SMTP settings (replace with your App Password)
+    gmail_user = 'your-email@gmail.com'
+    gmail_password = 'your-app-password'  # Use App Password, not regular password
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = gmail_user
+    msg['To'] = to_email
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(gmail_user, gmail_password)
+        server.sendmail(gmail_user, to_email, msg.as_string())
+        server.quit()
+        print(f"Email sent to {to_email}")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
+def save_email(email):
+    email_file = 'emails.txt'
+    with open(email_file, 'a') as f:
+        f.write(f"{email}\n")
+    print(f"Email {email} saved to {email_file}")
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -157,25 +188,49 @@ def home():
     chart_obv = []
     elliott_analysis = ""
     real_time_price = 0
+    portfolio_value = 0
+    alert_threshold = None
     selected_coin_id = request.form.get("ticker") if request.method == "POST" else None
-    if selected_coin_id:
-        url = f"https://api.coingecko.com/api/v3/coins/{selected_coin_id}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            crypto_data = {
-                "ticker": data["symbol"].upper(),
-                "name": data["name"],
-                "price": f"${data['market_data']['current_price']['usd']:.2f}",
-                "market_cap": f"${data['market_data']['market_cap']['usd']:,.0f}",
-                "volume_24h": f"${data['market_data']['total_volume']['usd']:,.0f}"
-            }
-            (chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal,
-             chart_sma, chart_ema, chart_upper_bb, chart_lower_bb, chart_k_stoch, chart_d_stoch,
-             chart_obv, elliott_analysis) = get_historical_data(selected_coin_id)
-            real_time_price = get_real_time_price(selected_coin_id)
-        else:
-            crypto_data = {"error": "Unable to fetch data for this coin"}
+    portfolio = json.loads(request.cookies.get('portfolio', '[]')) if request.cookies.get('portfolio') else []
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "add_portfolio":
+            ticker = request.form.get("portfolioTicker").lower()
+            amount = float(request.form.get("portfolioAmount"))
+            portfolio.append({"ticker": ticker, "amount": amount})
+            response = app.make_response(redirect(request.url))
+            response.set_cookie('portfolio', json.dumps(portfolio))
+            return response
+        elif action == "set_alert":
+            alert_threshold = float(request.form.get("alertPrice"))
+            user_email = request.form.get("userEmail")
+            if user_email:
+                save_email(user_email)
+            if real_time_price and alert_threshold and real_time_price >= alert_threshold:
+                send_email(f"Price Alert for {selected_coin_id.upper()}",
+                           f"The price of {selected_coin_id.upper()} has reached ${real_time_price} at {datetime.now()}.",
+                           user_email or "your-email@gmail.com")  # Default to your email for testing
+        elif selected_coin_id:
+            url = f"https://api.coingecko.com/api/v3/coins/{selected_coin_id}"
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                crypto_data = {
+                    "ticker": data["symbol"].upper(),
+                    "name": data["name"],
+                    "price": f"${data['market_data']['current_price']['usd']:.2f}",
+                    "market_cap": f"${data['market_data']['market_cap']['usd']:,.0f}",
+                    "volume_24h": f"${data['market_data']['total_volume']['usd']:,.0f}"
+                }
+                (chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal,
+                 chart_sma, chart_ema, chart_upper_bb, chart_lower_bb, chart_k_stoch, chart_d_stoch,
+                 chart_obv, elliott_analysis) = get_historical_data(selected_coin_id)
+                real_time_price = get_real_time_price(selected_coin_id)
+                if portfolio:
+                    portfolio_value = sum(item["amount"] * get_real_time_price(item["ticker"]) for item in portfolio if get_real_time_price(item["ticker"]))
+            else:
+                crypto_data = {"error": "Unable to fetch data for this coin"}
 
     return render_template("index.html", crypto_data=crypto_data, coins=COIN_LIST,
                           chart_labels=chart_labels, chart_prices=chart_prices,
@@ -185,7 +240,8 @@ def home():
                           chart_upper_bb=chart_upper_bb, chart_lower_bb=chart_lower_bb,
                           chart_k_stoch=chart_k_stoch, chart_d_stoch=chart_d_stoch,
                           chart_obv=chart_obv, elliott_analysis=elliott_analysis,
-                          real_time_price=real_time_price)
+                          real_time_price=real_time_price, portfolio_value=portfolio_value,
+                          alert_threshold=alert_threshold)
 
 if __name__ == "__main__":
     app.run(debug=True)
