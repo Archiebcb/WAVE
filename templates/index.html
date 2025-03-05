@@ -4,12 +4,92 @@
     <meta charset="UTF-8">
     <title>WAVE Crypto Trading Tool</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-        .result { margin-top: 20px; }
-        select { width: 200px; padding: 5px; }
-        .search-container { margin-bottom: 10px; }
-        #searchInput { width: 200px; padding: 5px; }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        h1 {
+            font-size: 3em;
+            color: #00ffcc;
+            text-shadow: 0 0 10px #00ffcc, 0 0 20px #00ffcc, 0 0 30px #00e6b8;
+            margin-bottom: 20px;
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
+        @keyframes glow {
+            from { text-shadow: 0 0 5px #00ffcc, 0 0 10px #00ffcc; }
+            to { text-shadow: 0 0 20px #00ffcc, 0 0 30px #00e6b8, 0 0 40px #00ffcc; }
+        }
+        .search-container {
+            margin-bottom: 20px;
+        }
+        #searchInput {
+            width: 250px;
+            padding: 10px;
+            font-size: 1em;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            outline: none;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+            transition: box-shadow 0.3s;
+        }
+        #searchInput:focus {
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.8);
+        }
+        select {
+            width: 250px;
+            padding: 10px;
+            font-size: 1em;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+            appearance: none;
+            cursor: pointer;
+        }
+        select option {
+            background: #24243e;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            border: none;
+            border-radius: 5px;
+            background: #00ffcc;
+            color: #0f0c29;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px #00ffcc;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+        }
+        .chart-container {
+            margin-top: 20px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <h1>WAVE Crypto Trading Tool</h1>
@@ -38,24 +118,57 @@
                 <p>24h Volume: {{ crypto_data.volume_24h }}</p>
             {% endif %}
         </div>
+        <div class="chart-container">
+            <canvas id="priceChart"></canvas>
+        </div>
     {% endif %}
 
     <script>
         function filterOptions() {
-            // Get the search term and the select element
             let input = document.getElementById("searchInput").value.toLowerCase();
             let select = document.getElementById("ticker");
             let options = select.options;
-
-            // Loop through all options
             for (let i = 0; i < options.length; i++) {
                 let text = options[i].text.toLowerCase();
                 if (text.includes(input)) {
-                    options[i].style.display = ""; // Show matching option
+                    options[i].style.display = "";
                 } else {
-                    options[i].style.display = "none"; // Hide non-matching option
+                    options[i].style.display = "none";
                 }
             }
+        }
+    
+        let chart = null;
+        if (document.getElementById('priceChart') && crypto_data && !crypto_data.error) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: {{ chart_labels|tojson }},
+                    datasets: [{
+                        label: 'Price (USD) - Last 7 Days',
+                        data: {{ chart_data|tojson }},
+                        borderColor: '#00ffcc',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: { display: true, text: 'Price (USD)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Days' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#00ffcc' } }
+                    }
+                }
+            });
         }
     </script>
 </body>
