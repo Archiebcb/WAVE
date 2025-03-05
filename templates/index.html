@@ -64,7 +64,7 @@
             background: #24243e;
             color: #fff;
         }
-        input[type="email"], input[type="number"] {
+        input[type="email"], input[type="number"], input[type="text"] {
             width: 200px;
             padding: 10px;
             margin: 5px;
@@ -126,10 +126,28 @@
             padding: 20px;
             box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
             transition: transform 0.2s;
+            display: none; /* Hidden by default */
         }
         .chart-container.dragging {
             opacity: 0.6;
             transform: scale(1.02);
+        }
+        .chart-container.active {
+            display: block; /* Show when active */
+        }
+        .chart-title {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #00ffcc;
+        }
+        .sentiment-gauge, .prediction-range {
+            margin: 20px auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 15px;
+            max-width: 600px;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.5);
+            border: 1px solid #00ffcc;
         }
         .elliott-analysis, .in-depth-analysis {
             margin: 40px auto;
@@ -142,8 +160,12 @@
             white-space: pre-wrap;
             font-size: 1.1em;
             color: #e0e0e0;
+            display: none; /* Hidden by default */
         }
-        .portfolio-tracker, .alerts {
+        .elliott-analysis.active, .in-depth-analysis.active {
+            display: block; /* Show when active */
+        }
+        .portfolio-tracker {
             margin: 40px auto;
             padding: 20px;
             background: rgba(0, 0, 0, 0.6);
@@ -152,12 +174,65 @@
             box-shadow: 0 0 25px rgba(0, 255, 204, 0.5);
             border: 1px solid #00ffcc;
         }
+        .portfolio-tracker p {
+            margin: 10px 0;
+            color: #00ffcc;
+        }
+        .alerts {
+            margin: 40px auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 15px;
+            max-width: 800px;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.5);
+            border: 1px solid #00ffcc;
+        }
+        .chart-toggles {
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        .chart-toggle {
+            padding: 10px 20px;
+            background: rgba(0, 255, 204, 0.3);
+            border: none;
+            border-radius: 5px;
+            color: #00ffcc;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .chart-toggle:hover, .chart-toggle.active {
+            background: #00e6b8;
+            color: #0f0c29;
+        }
+        .real-time-controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .spinner {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #00ffcc;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
         canvas {
             max-width: 100%;
             height: auto !important;
         }
         @media (max-width: 800px) {
-            .chart-container, .elliott-analysis, .in-depth-analysis, .portfolio-tracker, .alerts {
+            .chart-container, .elliott-analysis, .in-depth-analysis, .portfolio-tracker, .alerts, .sentiment-gauge, .prediction-range {
                 max-width: 100%;
                 margin: 20px 0;
             }
@@ -165,12 +240,16 @@
                 width: 100%;
                 margin-bottom: 10px;
             }
-            input[type="email"], input[type="number"] {
+            input[type="email"], input[type="number"], input[type="text"] {
                 width: 100%;
                 margin: 5px 0;
             }
             button {
                 width: 100%;
+            }
+            .chart-toggles, .real-time-controls {
+                flex-direction: column;
+                align-items: center;
             }
         }
     </style>
@@ -195,6 +274,49 @@
         <button type="submit">Get Data</button>
     </form>
 
+    <div class="portfolio-tracker">
+        <h3>Portfolio Tracker</h3>
+        <form method="POST" id="portfolioForm">
+            <input type="hidden" name="portfolio_action" value="add">
+            <input type="text" name="portfolio_ticker" placeholder="Ticker (e.g., bitcoin)" required>
+            <input type="number" name="portfolio_amount" placeholder="Amount" step="0.01" required>
+            <button type="submit">Add to Portfolio</button>
+        </form>
+        <p>Current Portfolio Value: ${{ portfolio|sum(attribute='amount')|round(2) * real_time_price if portfolio and real_time_price else 0 }}</p>
+        <p>Holdings: {{ portfolio|length }} items</p>
+        {% if portfolio %}
+            <ul style="list-style-type: none; padding: 0;">
+                {% for item in portfolio %}
+                    <li>{{ item.ticker|upper }}: {{ item.amount }} units</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No holdings yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="real-time-controls">
+        <button id="refreshButton">Refresh Now</button>
+        <input type="range" id="updateInterval" min="5" max="60" value="10" step="5">
+        <span id="intervalValue">10s</span>
+        <div id="spinner" class="spinner"></div>
+    </div>
+
+    <div class="chart-toggles">
+        <button class="chart-toggle" data-chart="priceChart">Price</button>
+        <button class="chart-toggle" data-chart="rsiChart">RSI</button>
+        <button class="chart-toggle" data-chart="macdChart">MACD</button>
+        <button class="chart-toggle" data-chart="volumeChart">Volume</button>
+        <button class="chart-toggle" data-chart="smaEmaChart">SMA/EMA</button>
+        <button class="chart-toggle" data-chart="bollingerChart">Bollinger</button>
+        <button class="chart-toggle" data-chart="stochasticChart">Stochastic</button>
+        <button class="chart-toggle" data-chart="obvChart">OBV</button>
+        <button class="chart-toggle" data-chart="sentiment-gauge">Sentiment</button>
+        <button class="chart-toggle" data-chart="prediction-range">Prediction</button>
+        <button class="chart-toggle" data-chart="elliott-analysis">Elliott</button>
+        <button class="chart-toggle" data-chart="in-depth-analysis">In-Depth</button>
+    </div>
+
     {% if crypto_data %}
         <div class="result">
             {% if crypto_data.error %}
@@ -209,34 +331,52 @@
         <div class="real-time-price">
             Real-Time Price: <span style="color: #00ffcc;">${{ real_time_price if real_time_price else 'N/A' }}</span>
         </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="priceChart"></canvas>
+        <div class="chart-container" id="priceChart" draggable="true">
+            <div class="chart-title">Price Chart - 30-Day Trend</div>
+            <canvas id="canvas-priceChart"></canvas>
         </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="rsiChart"></canvas>
+        <div class="chart-container" id="rsiChart" draggable="true">
+            <div class="chart-title">RSI - Momentum Indicator</div>
+            <canvas id="canvas-rsiChart"></canvas>
         </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="macdChart"></canvas>
+        <div class="chart-container" id="macdChart" draggable="true">
+            <div class="chart-title">MACD - Trend Following</div>
+            <canvas id="canvas-macdChart"></canvas>
         </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="volumeChart"></canvas>
+        <div class="chart-container" id="volumeChart" draggable="true">
+            <div class="chart-title">Volume - Market Activity</div>
+            <canvas id="canvas-volumeChart"></canvas>
         </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="smaEmaChart"></canvas>
+        <div class="chart-container" id="smaEmaChart" draggable="true">
+            <div class="chart-title">SMA/EMA - Moving Averages</div>
+            <canvas id="canvas-smaEmaChart"></canvas>
         </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="bollingerChart"></canvas>
+        <div class="chart-container" id="bollingerChart" draggable="true">
+            <div class="chart-title">Bollinger Bands - Volatility</div>
+            <canvas id="canvas-bollingerChart"></canvas>
         </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="stochasticChart"></canvas>
+        <div class="chart-container" id="stochasticChart" draggable="true">
+            <div class="chart-title">Stochastic - Oscillator</div>
+            <canvas id="canvas-stochasticChart"></canvas>
         </div>
-        <div class="chart-container" draggable="true">
-            <canvas id="obvChart"></canvas>
+        <div class="chart-container" id="obvChart" draggable="true">
+            <div class="chart-title">OBV - Volume Trend</div>
+            <canvas id="canvas-obvChart"></canvas>
         </div>
-        <div class="elliott-analysis">
+        <div class="sentiment-gauge" id="sentiment-gauge">
+            <h3>Sentiment Analysis</h3>
+            <p>Sentiment Score: {{ '%0.2f' | format(sentiment_score) }}</p>
+            <p>Sentiment: <span style="color: {% if sentiment == 'Bullish' %}#00ff00{% elif sentiment == 'Bearish' %}#ff0000{% else %}#ffff00{% endif %};">{{ sentiment }}</span></p>
+        </div>
+        <div class="prediction-range" id="prediction-range">
+            <h3>Price Prediction (Next 2 Days)</h3>
+            <p>Predicted Price: ${{ '%0.2f' | format(predicted_price) }}</p>
+            <p>Confidence Range: ${{ '%0.2f' | format(pred_low) }} - ${{ '%0.2f' | format(pred_high) }}</p>
+        </div>
+        <div class="elliott-analysis" id="elliott-analysis">
             {{ elliott_analysis|safe }}
         </div>
-        <div class="in-depth-analysis">
+        <div class="in-depth-analysis" id="in-depth-analysis">
             {{ in_depth_analysis|safe }}
         </div>
 
@@ -255,239 +395,468 @@
             var chartDstoch = {{ chart_d_stoch|tojson|safe }};
             var chartObv = {{ chart_obv|tojson|safe }};
 
-            // Price Chart
-            if (document.getElementById('priceChart') && chartLabels.length > 0 && chartPrices.length > 0) {
-                new Chart(document.getElementById('priceChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'Price (USD) - Last 30 Days',
-                            data: chartPrices,
-                            borderColor: '#00ffcc',
-                            tension: 0.1,
-                            fill: false
-                        }]
-                    },
-                    options: {
-                        scales: { y: { beginAtZero: false, title: { display: true, text: 'Price (USD)', color: '#00ffcc' } },
-                                x: { title: { display: true, text: 'Days', color: '#00ffcc' } } },
-                        plugins: { legend: { labels: { color: '#00ffcc' } } }
-                    }
-                });
+            // Chart Initialization
+            const charts = {
+                'priceChart': null,
+                'rsiChart': null,
+                'macdChart': null,
+                'volumeChart': null,
+                'smaEmaChart': null,
+                'bollingerChart': null,
+                'stochasticChart': null,
+                'obvChart': null
+            };
+
+            function initializeChart(chartId) {
+                const canvas = document.getElementById(`canvas-${chartId}`);
+                if (!canvas || charts[chartId]) return;
+
+                if (chartId === 'priceChart' && chartLabels.length > 0 && chartPrices.length > 0) {
+                    charts[chartId] = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                label: 'Price (USD)',
+                                data: chartPrices,
+                                borderColor: '#00ffcc',
+                                tension: 0.1,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: 'Price (USD)', color: '#00ffcc' },
+                                    grid: { color: 'rgba(0, 255, 204, 0.1)' }
+                                },
+                                x: { title: { display: true, text: 'Days', color: '#00ffcc' }, grid: { color: 'rgba(0, 255, 204, 0.1)' } }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { color: '#00ffcc', boxWidth: 10 } },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: $${context.raw.toFixed(2)}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                else if (chartId === 'rsiChart' && chartLabels.length > 0 && chartRsi.length > 0) {
+                    charts[chartId] = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                label: 'RSI',
+                                data: chartRsi,
+                                borderColor: '#ff6384',
+                                tension: 0.1,
+                                fill: false
+                            }, {
+                                label: 'Overbought (70)',
+                                data: Array(chartRsi.length).fill(70),
+                                borderColor: '#ffcd56',
+                                borderDash: [5, 5],
+                                fill: false
+                            }, {
+                                label: 'Oversold (30)',
+                                data: Array(chartRsi.length).fill(30),
+                                borderColor: '#36a2eb',
+                                borderDash: [5, 5],
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    title: { display: true, text: 'RSI', color: '#ff6384' },
+                                    grid: { color: 'rgba(255, 99, 132, 0.1)' }
+                                },
+                                x: { title: { display: true, text: 'Days', color: '#ff6384' }, grid: { color: 'rgba(255, 99, 132, 0.1)' } }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { color: '#ff6384', boxWidth: 10 } },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw.toFixed(2)}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                else if (chartId === 'macdChart' && chartLabels.length > 0 && chartMacd.length > 0) {
+                    charts[chartId] = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                label: 'MACD',
+                                data: chartMacd,
+                                borderColor: '#4bc0c0',
+                                tension: 0.1,
+                                fill: false
+                            }, {
+                                label: 'Signal',
+                                data: chartSignal,
+                                borderColor: '#ff9f40',
+                                tension: 0.1,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: { display: true, text: 'MACD', color: '#4bc0c0' },
+                                    grid: { color: 'rgba(75, 192, 192, 0.1)' }
+                                },
+                                x: { title: { display: true, text: 'Days', color: '#4bc0c0' }, grid: { color: 'rgba(75, 192, 192, 0.1)' } }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { color: '#4bc0c0', boxWidth: 10 } },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw.toFixed(2)}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                else if (chartId === 'volumeChart' && chartLabels.length > 0 && chartVolumes.length > 0) {
+                    charts[chartId] = new Chart(canvas.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                label: 'Volume (USD)',
+                                data: chartVolumes,
+                                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: { display: true, text: 'Volume (USD)', color: '#36a2eb' },
+                                    grid: { color: 'rgba(54, 162, 235, 0.1)' }
+                                },
+                                x: { title: { display: true, text: 'Days', color: '#36a2eb' }, grid: { color: 'rgba(54, 162, 235, 0.1)' } }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { color: '#36a2eb', boxWidth: 10 } },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: $${context.raw.toFixed(2)}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                else if (chartId === 'smaEmaChart' && chartLabels.length > 0 && chartSma.length > 0 && chartEma.length > 0) {
+                    charts[chartId] = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: chartLabels.slice(chartSma.length - 1),
+                            datasets: [{
+                                label: 'SMA (20)',
+                                data: chartSma,
+                                borderColor: '#ffce56',
+                                tension: 0.1,
+                                fill: false
+                            }, {
+                                label: 'EMA (12)',
+                                data: chartEma.slice(chartSma.length - 1),
+                                borderColor: '#4bc0c0',
+                                tension: 0.1,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: 'Price (USD)', color: '#ffce56' },
+                                    grid: { color: 'rgba(255, 206, 86, 0.1)' }
+                                },
+                                x: { title: { display: true, text: 'Days', color: '#ffce56' }, grid: { color: 'rgba(255, 206, 86, 0.1)' } }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { color: '#ffce56', boxWidth: 10 } },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: $${context.raw.toFixed(2)}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                else if (chartId === 'bollingerChart' && chartLabels.length > 0 && chartUpperBb.length > 0) {
+                    charts[chartId] = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: chartLabels.slice(chartUpperBb.length - 1),
+                            datasets: [{
+                                label: 'Price',
+                                data: chartPrices.slice(chartUpperBb.length - 1),
+                                borderColor: '#00ffcc',
+                                tension: 0.1,
+                                fill: false
+                            }, {
+                                label: 'Upper Bollinger Band',
+                                data: chartUpperBb,
+                                borderColor: '#ff6384',
+                                borderDash: [5, 5],
+                                fill: false
+                            }, {
+                                label: 'Lower Bollinger Band',
+                                data: chartLowerBb,
+                                borderColor: '#36a2eb',
+                                borderDash: [5, 5],
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: 'Price (USD)', color: '#00ffcc' },
+                                    grid: { color: 'rgba(0, 255, 204, 0.1)' }
+                                },
+                                x: { title: { display: true, text: 'Days', color: '#00ffcc' }, grid: { color: 'rgba(0, 255, 204, 0.1)' } }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { color: '#00ffcc', boxWidth: 10 } },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: $${context.raw.toFixed(2)}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                else if (chartId === 'stochasticChart' && chartLabels.length > 0 && chartKstoch.length > 0) {
+                    charts[chartId] = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: chartLabels.slice(chartKstoch.length - 1),
+                            datasets: [{
+                                label: '%K',
+                                data: chartKstoch,
+                                borderColor: '#ff9f40',
+                                tension: 0.1,
+                                fill: false
+                            }, {
+                                label: '%D',
+                                data: chartDstoch,
+                                borderColor: '#4bc0c0',
+                                tension: 0.1,
+                                fill: false
+                            }, {
+                                label: 'Overbought (80)',
+                                data: Array(chartKstoch.length).fill(80),
+                                borderColor: '#ffcd56',
+                                borderDash: [5, 5],
+                                fill: false
+                            }, {
+                                label: 'Oversold (20)',
+                                data: Array(chartKstoch.length).fill(20),
+                                borderColor: '#36a2eb',
+                                borderDash: [5, 5],
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    title: { display: true, text: 'Stochastic (%)', color: '#ff9f40' },
+                                    grid: { color: 'rgba(255, 159, 64, 0.1)' }
+                                },
+                                x: { title: { display: true, text: 'Days', color: '#ff9f40' }, grid: { color: 'rgba(255, 159, 64, 0.1)' } }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { color: '#ff9f40', boxWidth: 10 } },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw.toFixed(2)}%`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                else if (chartId === 'obvChart' && chartLabels.length > 0 && chartObv.length > 0) {
+                    charts[chartId] = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                label: 'On-Balance Volume',
+                                data: chartObv,
+                                borderColor: '#ff5733',
+                                tension: 0.1,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: { display: true, text: 'OBV', color: '#ff5733' },
+                                    grid: { color: 'rgba(255, 87, 51, 0.1)' }
+                                },
+                                x: { title: { display: true, text: 'Days', color: '#ff5733' }, grid: { color: 'rgba(255, 87, 51, 0.1)' } }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { color: '#ff5733', boxWidth: 10 } },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw.toFixed(2)}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
             }
 
-            // RSI Chart
-            if (document.getElementById('rsiChart') && chartLabels.length > 0 && chartRsi.length > 0) {
-                new Chart(document.getElementById('rsiChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'RSI',
-                            data: chartRsi,
-                            borderColor: '#ff6384',
-                            tension: 0.1,
-                            fill: false
-                        }, {
-                            label: 'Overbought (70)',
-                            data: Array(chartRsi.length).fill(70),
-                            borderColor: '#ffcd56',
-                            borderDash: [5, 5],
-                            fill: false
-                        }, {
-                            label: 'Oversold (30)',
-                            data: Array(chartRsi.length).fill(30),
-                            borderColor: '#36a2eb',
-                            borderDash: [5, 5],
-                            fill: false
-                        }]
-                    },
-                    options: {
-                        scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'RSI', color: '#ff6384' } },
-                                x: { title: { display: true, text: 'Days', color: '#ff6384' } } },
-                        plugins: { legend: { labels: { color: '#ff6384' } } }
-                    }
-                });
-            }
+            // Toggle Chart Visibility
+            document.querySelectorAll('.chart-toggle').forEach(button => {
+                button.addEventListener('click', () => {
+                    const chartId = button.getAttribute('data-chart');
+                    const container = document.getElementById(chartId);
+                    if (!container) return;
 
-            // MACD Chart
-            if (document.getElementById('macdChart') && chartLabels.length > 0 && chartMacd.length > 0) {
-                new Chart(document.getElementById('macdChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'MACD',
-                            data: chartMacd,
-                            borderColor: '#4bc0c0',
-                            tension: 0.1,
-                            fill: false
-                        }, {
-                            label: 'Signal',
-                            data: chartSignal,
-                            borderColor: '#ff9f40',
-                            tension: 0.1,
-                            fill: false
-                        }]
-                    },
-                    options: {
-                        scales: { y: { beginAtZero: true, title: { display: true, text: 'MACD', color: '#4bc0c0' } },
-                                x: { title: { display: true, text: 'Days', color: '#4bc0c0' } } },
-                        plugins: { legend: { labels: { color: '#4bc0c0' } } }
-                    }
-                });
-            }
+                    const isActive = container.classList.contains('active');
+                    container.classList.toggle('active', !isActive);
+                    button.classList.toggle('active', !isActive);
 
-            // Volume Chart
-            if (document.getElementById('volumeChart') && chartLabels.length > 0 && chartVolumes.length > 0) {
-                new Chart(document.getElementById('volumeChart').getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'Volume (USD)',
-                            data: chartVolumes,
-                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        scales: { y: { beginAtZero: true, title: { display: true, text: 'Volume (USD)', color: '#36a2eb' } },
-                                x: { title: { display: true, text: 'Days', color: '#36a2eb' } } },
-                        plugins: { legend: { labels: { color: '#36a2eb' } } }
-                    }
-                });
-            }
+                    // Save preference to localStorage
+                    const activeCharts = Array.from(document.querySelectorAll('.chart-container.active, .elliott-analysis.active, .in-depth-analysis.active, .sentiment-gauge.active, .prediction-range.active'))
+                        .map(el => el.id);
+                    localStorage.setItem('activeCharts', JSON.stringify(activeCharts));
 
-            // SMA/EMA Chart
-            if (document.getElementById('smaEmaChart') && chartLabels.length > 0 && chartSma.length > 0 && chartEma.length > 0) {
-                new Chart(document.getElementById('smaEmaChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels.slice(chartSma.length - 1),
-                        datasets: [{
-                            label: 'SMA (20)',
-                            data: chartSma,
-                            borderColor: '#ffce56',
-                            tension: 0.1,
-                            fill: false
-                        }, {
-                            label: 'EMA (12)',
-                            data: chartEma.slice(chartSma.length - 1),
-                            borderColor: '#4bc0c0',
-                            tension: 0.1,
-                            fill: false
-                        }]
-                    },
-                    options: {
-                        scales: { y: { beginAtZero: false, title: { display: true, text: 'Price (USD)', color: '#ffce56' } },
-                                x: { title: { display: true, text: 'Days', color: '#ffce56' } } },
-                        plugins: { legend: { labels: { color: '#ffce56' } } }
+                    if (charts[chartId] && isActive) {
+                        charts[chartId].destroy();
+                        charts[chartId] = null;
+                    } else if (charts[chartId] === null && !isActive) {
+                        initializeChart(chartId);
                     }
                 });
-            }
+            });
 
-            // Bollinger Bands Chart
-            if (document.getElementById('bollingerChart') && chartLabels.length > 0 && chartUpperBb.length > 0) {
-                new Chart(document.getElementById('bollingerChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels.slice(chartUpperBb.length - 1),
-                        datasets: [{
-                            label: 'Price',
-                            data: chartPrices.slice(chartUpperBb.length - 1),
-                            borderColor: '#00ffcc',
-                            tension: 0.1,
-                            fill: false
-                        }, {
-                            label: 'Upper Bollinger Band',
-                            data: chartUpperBb,
-                            borderColor: '#ff6384',
-                            borderDash: [5, 5],
-                            fill: false
-                        }, {
-                            label: 'Lower Bollinger Band',
-                            data: chartLowerBb,
-                            borderColor: '#36a2eb',
-                            borderDash: [5, 5],
-                            fill: false
-                        }]
-                    },
-                    options: {
-                        scales: { y: { beginAtZero: false, title: { display: true, text: 'Price (USD)', color: '#00ffcc' } },
-                                x: { title: { display: true, text: 'Days', color: '#00ffcc' } } },
-                        plugins: { legend: { labels: { color: '#00ffcc' } } }
-                    }
-                });
-            }
+            // Load saved preferences
+            const savedCharts = JSON.parse(localStorage.getItem('activeCharts') || '[]');
+            savedCharts.forEach(chartId => {
+                const container = document.getElementById(chartId);
+                if (container) container.classList.add('active');
+                const button = document.querySelector(`.chart-toggle[data-chart="${chartId}"]`);
+                if (button) button.classList.add('active');
+                initializeChart(chartId);
+            });
 
-            // Stochastic Chart
-            if (document.getElementById('stochasticChart') && chartLabels.length > 0 && chartKstoch.length > 0) {
-                new Chart(document.getElementById('stochasticChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels.slice(chartKstoch.length - 1),
-                        datasets: [{
-                            label: '%K',
-                            data: chartKstoch,
-                            borderColor: '#ff9f40',
-                            tension: 0.1,
-                            fill: false
-                        }, {
-                            label: '%D',
-                            data: chartDstoch,
-                            borderColor: '#4bc0c0',
-                            tension: 0.1,
-                            fill: false
-                        }, {
-                            label: 'Overbought (80)',
-                            data: Array(chartKstoch.length).fill(80),
-                            borderColor: '#ffcd56',
-                            borderDash: [5, 5],
-                            fill: false
-                        }, {
-                            label: 'Oversold (20)',
-                            data: Array(chartKstoch.length).fill(20),
-                            borderColor: '#36a2eb',
-                            borderDash: [5, 5],
-                            fill: false
-                        }]
-                    },
-                    options: {
-                        scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Stochastic (%)', color: '#ff9f40' } },
-                                x: { title: { display: true, text: 'Days', color: '#ff9f40' } } },
-                        plugins: { legend: { labels: { color: '#ff9f40' } } }
-                    }
-                });
-            }
+            // Initialize all charts on page load
+            Object.keys(charts).forEach(chartId => {
+                if (!charts[chartId]) initializeChart(chartId);
+            });
 
-            // OBV Chart
-            if (document.getElementById('obvChart') && chartLabels.length > 0 && chartObv.length > 0) {
-                new Chart(document.getElementById('obvChart').getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'On-Balance Volume',
-                            data: chartObv,
-                            borderColor: '#ff5733',
-                            tension: 0.1,
-                            fill: false
-                        }]
-                    },
-                    options: {
-                        scales: { y: { beginAtZero: true, title: { display: true, text: 'OBV', color: '#ff5733' } },
-                                x: { title: { display: true, text: 'Days', color: '#ff5733' } } },
-                        plugins: { legend: { labels: { color: '#ff5733' } } }
-                    }
+            // Real-Time Controls
+            let updateInterval = 10000; // Default 10 seconds
+            const spinner = document.getElementById('spinner');
+
+            document.getElementById('refreshButton').addEventListener('click', () => {
+                spinner.style.display = 'inline-block';
+                updateRealTimePrice().then(() => {
+                    spinner.style.display = 'none';
                 });
+            });
+
+            document.getElementById('updateInterval').addEventListener('input', (e) => {
+                updateInterval = e.target.value * 1000;
+                document.getElementById('intervalValue').textContent = `${e.target.value}s`;
+                clearInterval(window.priceInterval);
+                window.priceInterval = setInterval(updateRealTimePrice, updateInterval);
+            });
+
+            async function updateRealTimePrice() {
+                const selectedCoin = document.getElementById("ticker").value;
+                if (selectedCoin) {
+                    try {
+                        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${selectedCoin}&vs_currencies=usd`);
+                        const data = await response.json();
+                        let price = data[selectedCoin]?.usd || 0;
+                        document.querySelector('.real-time-price').textContent = `Real-Time Price: $${price.toFixed(2)}`;
+                    } catch (error) {
+                        console.error("Error fetching real-time price:", error);
+                    }
+                }
             }
+            window.priceInterval = setInterval(updateRealTimePrice, updateInterval);
+            document.addEventListener("DOMContentLoaded", updateRealTimePrice);
+
+            // Portfolio Form Submission
+            document.getElementById('portfolioForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const response = await fetch('/add_to_portfolio', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                alert(result.message);
+                if (result.status === 'success') {
+                    location.reload(); // Refresh to update portfolio display
+                }
+            });
 
             // Drag-and-Drop for Customizable Dashboards
             let draggedItem = null;
-            document.querySelectorAll('.chart-container').forEach(container => {
+            document.querySelectorAll('.chart-container, .sentiment-gauge, .prediction-range').forEach(container => {
                 container.addEventListener('dragstart', () => {
                     draggedItem = container;
                     setTimeout(() => container.classList.add('dragging'), 0);
@@ -500,7 +869,7 @@
                 container.addEventListener('drop', e => {
                     e.preventDefault();
                     if (draggedItem !== container) {
-                        const containers = document.querySelectorAll('.chart-container');
+                        const containers = document.querySelectorAll('.chart-container, .sentiment-gauge, .prediction-range');
                         const draggedIndex = Array.from(containers).indexOf(draggedItem);
                         const droppedIndex = Array.from(containers).indexOf(container);
                         if (draggedIndex < droppedIndex) {
@@ -511,47 +880,26 @@
                     }
                 });
             });
-        </script>
-    {% endif %}
 
-    <script>
-        function filterOptions() {
-            console.log("Filtering with input:", document.getElementById("searchInput").value); // Debug log
-            let input = document.getElementById("searchInput").value.toLowerCase();
-            let select = document.getElementById("ticker");
-            console.log("Select element:", select); // Debug log
-            if (!select) {
-                console.error("Ticker select element not found!");
-                return;
-            }
-            let options = select.options;
-            console.log("Options length:", options.length); // Debug log
-            for (let i = 0; i < options.length; i++) {
-                let text = options[i].text.toLowerCase();
-                console.log(`Checking option ${i}: ${text}`); // Debug log
-                if (text.includes(input)) {
-                    options[i].style.display = "";
-                } else {
-                    options[i].style.display = "none";
+            function filterOptions() {
+                console.log("Filtering with input:", document.getElementById("searchInput").value);
+                let input = document.getElementById("searchInput").value.toLowerCase();
+                let select = document.getElementById("ticker");
+                if (!select) {
+                    console.error("Ticker select element not found!");
+                    return;
+                }
+                let options = select.options;
+                for (let i = 0; i < options.length; i++) {
+                    let text = options[i].text.toLowerCase();
+                    if (text.includes(input)) {
+                        options[i].style.display = "";
+                    } else {
+                        options[i].style.display = "none";
+                    }
                 }
             }
-        }
-
-        // Real-time price update (polling every 10 seconds)
-        function updateRealTimePrice() {
-            let selectedCoin = document.getElementById("ticker").value;
-            if (selectedCoin) {
-                fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${selectedCoin}&vs_currencies=usd`)
-                    .then(response => response.json())
-                    .then(data => {
-                        let price = data[selectedCoin]?.usd || 0;
-                        document.querySelector('.real-time-price').textContent = `Real-Time Price: $${price.toFixed(2)}`;
-                    })
-                    .catch(error => console.error("Error fetching real-time price:", error));
-            }
-        }
-        setInterval(updateRealTimePrice, 10000); // Update every 10 seconds
-        document.addEventListener("DOMContentLoaded", updateRealTimePrice); // Initial update
-    </script>
+        </script>
+    {% endif %}
 </body>
 </html>
