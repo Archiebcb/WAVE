@@ -1,12 +1,15 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 import requests
 import numpy as np
 import smtplib
 from email.mime.text import MIMEText
 import time
 from datetime import datetime
-import json
-from textblob import TextBlob  # For basic sentiment analysis
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -15,9 +18,6 @@ EMAIL_ADDRESS = "your-email@gmail.com"  # Replace with your Gmail
 EMAIL_PASSWORD = "your-app-password"    # Replace with your App Password
 EMAIL_SERVER = "smtp.gmail.com"
 EMAIL_PORT = 587
-
-# Portfolio storage (in-memory for now; use a file or DB in production)
-PORTFOLIO = []
 
 def get_coingecko_coins():
     url = "https://api.coingecko.com/api/v3/coins/list"
@@ -160,39 +160,12 @@ def get_in_depth_analysis(prices, volumes, rsi_values, macd_line, signal_line, k
 
     return analysis
 
-def get_sentiment_analysis(coin_id):
-    # Simple sentiment analysis using X posts (placeholder; replace with real API)
-    try:
-        # Mock X API call (replace with actual Twitter API or CoinGecko news)
-        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"  # Use news endpoint if available
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            # Mock sentiment from descriptions or news (using TextBlob)
-            description = data.get('description', {}).get('en', '')
-            blob = TextBlob(description)
-            sentiment_score = blob.sentiment.polarity  # -1 to 1
-            sentiment = "Bullish" if sentiment_score > 0.1 else "Bearish" if sentiment_score < -0.1 else "Neutral"
-            return sentiment_score, sentiment
-        return 0, "Neutral"
-    except Exception as e:
-        print(f"Sentiment analysis error: {e}")
-        return 0, "Neutral"
-
-def predict_price(prices):
-    # Simple prediction using last 5 days' trend (placeholder for ML)
-    if len(prices) < 5:
-        return prices[-1], prices[-1] * 0.95, prices[-1] * 1.05  # Current, min, max
-    recent_prices = prices[-5:]
-    trend = np.mean(np.diff(recent_prices))
-    predicted = prices[-1] + trend * 2  # Predict next 2 periods
-    confidence_low = predicted * 0.95
-    confidence_high = predicted * 1.05
-    return predicted, confidence_low, confidence_high
-
 def get_historical_data(coin_id):
+    logger.debug(f"Fetching historical data for coin_id: {coin_id}")
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days=30"
+    time.sleep(1)  # Add delay to respect rate limit
     response = requests.get(url)
+    logger.debug(f"API response status: {response.status_code}, text: {response.text}")
     if response.status_code == 200:
         data = response.json()
         prices = [price[1] for price in data['prices']]
@@ -206,20 +179,33 @@ def get_historical_data(coin_id):
         obv = calculate_obv(prices, volumes)
         elliott_analysis = analyze_elliott_waves(prices)
         in_depth_analysis = get_in_depth_analysis(prices, volumes, rsi_values, macd_line, signal_line, k_stoch, d_stoch)
-        sentiment_score, sentiment = get_sentiment_analysis(coin_id)
-        predicted_price, pred_low, pred_high = predict_price(prices)
-        return (labels, prices, volumes, rsi_values, macd_line, signal_line, sma, ema, upper_bb, lower_bb,
-                k_stoch, d_stoch, obv, elliott_analysis, in_depth_analysis, sentiment_score, sentiment,
-                predicted_price, pred_low, pred_high)
-    print(f"Error fetching data for {coin_id}: {response.status_code} - {response.text}")
-    return ([], [], [], [], [], [], [], [], [], [], [], [], [], "Error fetching historical data.", "Error fetching historical data.", 0, "Neutral", 0, 0, 0)
+        return labels, prices, volumes, rsi_values, macd_line, signal_line, sma, ema, upper_bb, lower_bb, k_stoch, d_stoch, obv, elliott_analysis, in_depth_analysis
+    logger.error(f"Failed to fetch data for {coin_id}: {response.status_code} - {response.text}")
+    return [], [], [], [], [], [], [], [], [], [], [], [], [], "Error fetching historical data.", "Error fetching historical data."
 
 def get_real_time_price(coin_id):
+    logger.debug(f"Fetching real-time price for coin_id: {coin_id}")
     url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        return data.get(coin_id, {}).get('usd', 0)
+    max_retries = 5
+    retry_delay = 1  # Initial delay in seconds
+    for attempt in range(max_retries):
+        time.sleep(retry_delay)  # Respect rate limit
+        response = requests.get(url)
+        logger.debug(f"Real-time price API attempt {attempt + 1}, status: {response.status_code}, text: {response.text}")
+        if response.status_code == 200:
+            data = response.json()
+            price = data.get(coin_id, {}).get('usd', 0)
+            return price
+        elif response.status_code == 429:
+            logger.warning(f"Rate limit hit, retrying in {retry_delay} seconds...")
+            retry_delay *= 2  # Exponential backoff
+            if retry_delay > 10:
+                retry_delay = 10  # Cap at 10 seconds
+            continue
+        else:
+            logger.error(f"Unexpected status code {response.status_code} for {coin_id}")
+            break
+    logger.error(f"Failed to fetch real-time price for {coin_id} after {max_retries} attempts")
     return 0
 
 def send_email(subject, body, to_email):
@@ -233,16 +219,16 @@ def send_email(subject, body, to_email):
             server.starttls()
             server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             server.send_message(msg)
-        print(f"Email sent to {to_email}")
+        logger.info(f"Email sent to {to_email}")
     except Exception as e:
-        print(f"Failed to send email: {e}")
+        logger.error(f"Failed to send email: {e}")
 
 # Store emails locally (for demo; use a DB in production)
 EMAIL_LIST = []
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    global EMAIL_LIST, PORTFOLIO
+    global EMAIL_LIST
     crypto_data = None
     chart_labels = []
     chart_prices = []
@@ -260,27 +246,11 @@ def home():
     elliott_analysis = ""
     in_depth_analysis = ""
     real_time_price = 0
-    sentiment_score = 0
-    sentiment = "Neutral"
-    predicted_price = 0
-    pred_low = 0
-    pred_high = 0
     selected_coin_id = request.form.get("ticker") if request.method == "POST" else None
+    logger.debug(f"Selected coin_id from form: {selected_coin_id}")
     portfolio_email = request.form.get("portfolio_email")
     alert_email = request.form.get("alert_email")
     alert_threshold = request.form.get("alert_threshold")
-    portfolio_action = request.form.get("portfolio_action")
-    portfolio_ticker = request.form.get("portfolio_ticker")
-    portfolio_amount = request.form.get("portfolio_amount")
-
-    if portfolio_action == "add" and portfolio_ticker and portfolio_amount:
-        try:
-            amount = float(portfolio_amount)
-            if amount > 0:
-                PORTFOLIO.append({"ticker": portfolio_ticker.lower(), "amount": amount})
-                print(f"Added to portfolio: {portfolio_ticker} - {amount}")
-        except ValueError:
-            print("Invalid amount entered")
 
     if portfolio_email and portfolio_email not in EMAIL_LIST:
         EMAIL_LIST.append(portfolio_email)
@@ -289,6 +259,7 @@ def home():
     if selected_coin_id:
         url = f"https://api.coingecko.com/api/v3/coins/{selected_coin_id}"
         response = requests.get(url)
+        logger.debug(f"Coin info response status: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
             crypto_data = {
@@ -300,14 +271,14 @@ def home():
             }
             (chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal,
              chart_sma, chart_ema, chart_upper_bb, chart_lower_bb, chart_k_stoch, chart_d_stoch,
-             chart_obv, elliott_analysis, in_depth_analysis, sentiment_score, sentiment,
-             predicted_price, pred_low, pred_high) = get_historical_data(selected_coin_id)
+             chart_obv, elliott_analysis, in_depth_analysis) = get_historical_data(selected_coin_id)
             real_time_price = get_real_time_price(selected_coin_id)
 
             # Portfolio email (daily summary) - Test with frequent check
             if portfolio_email and datetime.now().minute % 1 == 0:  # Check every minute for testing
-                portfolio_value = sum(p["amount"] * get_real_time_price(p["ticker"]) for p in PORTFOLIO if get_real_time_price(p["ticker"]))
-                send_email("Daily Portfolio Update", f"Portfolio Value for {portfolio_email}: ${portfolio_value:.2f}\nDetails: {json.dumps(PORTFOLIO, indent=2)}", portfolio_email)
+                portfolio = []  # Placeholder; expand with user input later
+                portfolio_value = sum(p[1] * get_real_time_price(p[0]) for p in portfolio if get_real_time_price(p[0]))
+                send_email("Daily Portfolio Update", f"Portfolio Value for {portfolio_email}: ${portfolio_value:.2f}", portfolio_email)
 
             # Alert email
             if alert_email and alert_threshold and real_time_price >= float(alert_threshold):
@@ -324,23 +295,7 @@ def home():
                           chart_upper_bb=chart_upper_bb, chart_lower_bb=chart_lower_bb,
                           chart_k_stoch=chart_k_stoch, chart_d_stoch=chart_d_stoch,
                           chart_obv=chart_obv, elliott_analysis=elliott_analysis,
-                          in_depth_analysis=in_depth_analysis, real_time_price=real_time_price,
-                          portfolio=PORTFOLIO, sentiment_score=sentiment_score, sentiment=sentiment,
-                          predicted_price=predicted_price, pred_low=pred_low, pred_high=pred_high)
-
-@app.route("/add_to_portfolio", methods=["POST"])
-def add_to_portfolio():
-    global PORTFOLIO
-    ticker = request.form.get("ticker").lower()
-    amount = request.form.get("amount")
-    try:
-        amount = float(amount)
-        if amount > 0:
-            PORTFOLIO.append({"ticker": ticker, "amount": amount})
-            return jsonify({"status": "success", "message": f"Added {amount} of {ticker} to portfolio"})
-    except ValueError:
-        return jsonify({"status": "error", "message": "Invalid amount"})
-    return jsonify({"status": "error", "message": "Failed to add to portfolio"})
+                          in_depth_analysis=in_depth_analysis, real_time_price=real_time_price)
 
 if __name__ == "__main__":
     app.run(debug=True)
