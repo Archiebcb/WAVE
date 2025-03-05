@@ -156,6 +156,18 @@
         <div class="chart-container">
             <canvas id="volumeChart"></canvas>
         </div>
+        <div class="chart-container">
+            <canvas id="smaEmaChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="bollingerChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="stochasticChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="obvChart"></canvas>
+        </div>
         <div class="elliott-analysis">
             {{ elliott_analysis|safe }}
         </div>
@@ -167,6 +179,13 @@
             var chartRsi = {{ chart_rsi|tojson|safe }};
             var chartMacd = {{ chart_macd|tojson|safe }};
             var chartSignal = {{ chart_signal|tojson|safe }};
+            var chartSma = {{ chart_sma|tojson|safe }};
+            var chartEma = {{ chart_ema|tojson|safe }};
+            var chartUpperBb = {{ chart_upper_bb|tojson|safe }};
+            var chartLowerBb = {{ chart_lower_bb|tojson|safe }};
+            var chartKstoch = {{ chart_k_stoch|tojson|safe }};
+            var chartDstoch = {{ chart_d_stoch|tojson|safe }};
+            var chartObv = {{ chart_obv|tojson|safe }};
 
             // Price Chart
             if (document.getElementById('priceChart') && chartLabels.length > 0 && chartPrices.length > 0) {
@@ -270,6 +289,130 @@
                         scales: { y: { beginAtZero: true, title: { display: true, text: 'Volume (USD)', color: '#36a2eb' } },
                                 x: { title: { display: true, text: 'Days', color: '#36a2eb' } } },
                         plugins: { legend: { labels: { color: '#36a2eb' } } }
+                    }
+                });
+            }
+
+            // SMA/EMA Chart
+            if (document.getElementById('smaEmaChart') && chartLabels.length > 0 && chartSma.length > 0 && chartEma.length > 0) {
+                new Chart(document.getElementById('smaEmaChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels.slice(chartSma.length - 1),
+                        datasets: [{
+                            label: 'SMA (20)',
+                            data: chartSma,
+                            borderColor: '#ffce56',
+                            tension: 0.1,
+                            fill: false
+                        }, {
+                            label: 'EMA (12)',
+                            data: chartEma.slice(chartSma.length - 1),
+                            borderColor: '#4bc0c0',
+                            tension: 0.1,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: { y: { beginAtZero: false, title: { display: true, text: 'Price (USD)', color: '#ffce56' } },
+                                x: { title: { display: true, text: 'Days', color: '#ffce56' } } },
+                        plugins: { legend: { labels: { color: '#ffce56' } } }
+                    }
+                });
+            }
+
+            // Bollinger Bands Chart
+            if (document.getElementById('bollingerChart') && chartLabels.length > 0 && chartUpperBb.length > 0) {
+                new Chart(document.getElementById('bollingerChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels.slice(chartUpperBb.length - 1),
+                        datasets: [{
+                            label: 'Price',
+                            data: chartPrices.slice(chartUpperBb.length - 1),
+                            borderColor: '#00ffcc',
+                            tension: 0.1,
+                            fill: false
+                        }, {
+                            label: 'Upper Bollinger Band',
+                            data: chartUpperBb,
+                            borderColor: '#ff6384',
+                            borderDash: [5, 5],
+                            fill: false
+                        }, {
+                            label: 'Lower Bollinger Band',
+                            data: chartLowerBb,
+                            borderColor: '#36a2eb',
+                            borderDash: [5, 5],
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: { y: { beginAtZero: false, title: { display: true, text: 'Price (USD)', color: '#00ffcc' } },
+                                x: { title: { display: true, text: 'Days', color: '#00ffcc' } } },
+                        plugins: { legend: { labels: { color: '#00ffcc' } } }
+                    }
+                });
+            }
+
+            // Stochastic Chart
+            if (document.getElementById('stochasticChart') && chartLabels.length > 0 && chartKstoch.length > 0) {
+                new Chart(document.getElementById('stochasticChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels.slice(chartKstoch.length - 1),
+                        datasets: [{
+                            label: '%K',
+                            data: chartKstoch,
+                            borderColor: '#ff9f40',
+                            tension: 0.1,
+                            fill: false
+                        }, {
+                            label: '%D',
+                            data: chartDstoch,
+                            borderColor: '#4bc0c0',
+                            tension: 0.1,
+                            fill: false
+                        }, {
+                            label: 'Overbought (80)',
+                            data: Array(chartKstoch.length).fill(80),
+                            borderColor: '#ffcd56',
+                            borderDash: [5, 5],
+                            fill: false
+                        }, {
+                            label: 'Oversold (20)',
+                            data: Array(chartKstoch.length).fill(20),
+                            borderColor: '#36a2eb',
+                            borderDash: [5, 5],
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Stochastic (%)', color: '#ff9f40' } },
+                                x: { title: { display: true, text: 'Days', color: '#ff9f40' } } },
+                        plugins: { legend: { labels: { color: '#ff9f40' } } }
+                    }
+                });
+            }
+
+            // OBV Chart
+            if (document.getElementById('obvChart') && chartLabels.length > 0 && chartObv.length > 0) {
+                new Chart(document.getElementById('obvChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'On-Balance Volume',
+                            data: chartObv,
+                            borderColor: '#ff5733',
+                            tension: 0.1,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: { y: { beginAtZero: true, title: { display: true, text: 'OBV', color: '#ff5733' } },
+                                x: { title: { display: true, text: 'Days', color: '#ff5733' } } },
+                        plugins: { legend: { labels: { color: '#ff5733' } } }
                     }
                 });
             }

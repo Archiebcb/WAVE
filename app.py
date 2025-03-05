@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request
 import requests
 import numpy as np
-import time
 
 app = Flask(__name__)
 
@@ -22,6 +21,7 @@ def calculate_rsi(prices, period=14):
     avg_loss = np.mean(losses[:period]) if np.any(losses[:period]) else 0
     rs = avg_gain / avg_loss if avg_loss != 0 else 0
     rsi = 100 - (100 / (1 + rs)) if avg_loss != 0 else 0
+    rsi_values = [rsi]
     for i in range(period, len(prices) - 1):
         gain = gains[i - 1]
         loss = losses[i - 1]
@@ -29,7 +29,8 @@ def calculate_rsi(prices, period=14):
         avg_loss = (avg_loss * (period - 1) + loss) / period
         rs = avg_gain / avg_loss if avg_loss != 0 else 0
         rsi = 100 - (100 / (1 + rs)) if avg_loss != 0 else 0
-        yield rsi
+        rsi_values.append(rsi)
+    return rsi_values
 
 def calculate_macd(prices, slow=26, fast=12, signal=9):
     exp1 = np.convolve(prices, np.ones(fast) / fast, mode='valid')
@@ -37,6 +38,51 @@ def calculate_macd(prices, slow=26, fast=12, signal=9):
     macd = exp1[-len(exp2):] - exp2
     signal_line = np.convolve(macd, np.ones(signal) / signal, mode='valid')
     return macd[-len(signal_line):].tolist(), signal_line.tolist()
+
+def calculate_bollinger_bands(prices, period=20, std_dev=2):
+    sma = np.convolve(prices, np.ones(period) / period, mode='valid')
+    rolling_std = np.std(prices[:period])  # Initial std, will adjust with window
+    upper_band = [sma[0] + (std_dev * rolling_std)]
+    lower_band = [sma[0] - (std_dev * rolling_std)]
+    for i in range(period, len(prices)):
+        window = prices[i-period+1:i+1]
+        rolling_std = np.std(window)
+        upper_band.append(sma[i-period+1] + (std_dev * rolling_std))
+        lower_band.append(sma[i-period+1] - (std_dev * rolling_std))
+    return sma.tolist(), upper_band, lower_band
+
+def calculate_sma_ema(prices, sma_period=20, ema_period=12):
+    sma = np.convolve(prices, np.ones(sma_period) / sma_period, mode='valid').tolist()
+    ema = [prices[0]]  # Initial value
+    multiplier = 2 / (ema_period + 1)
+    for i in range(1, len(prices)):
+        ema.append(prices[i] * multiplier + ema[-1] * (1 - multiplier))
+    return sma, ema
+
+def calculate_stochastic(prices, k_period=14, d_period=3):
+    low_min = np.minimum.accumulate(prices)
+    high_max = np.maximum.accumulate(prices)
+    k = []
+    for i in range(len(prices) - k_period + 1):
+        window_low = low_min[i + k_period - 1]
+        window_high = high_max[i + k_period - 1]
+        if window_high > window_low:
+            k.append(100 * (prices[i + k_period - 1] - window_low) / (window_high - window_low))
+        else:
+            k.append(50.0)  # Default if no range
+    d = np.convolve(k, np.ones(d_period) / d_period, mode='valid').tolist()
+    return k, d
+
+def calculate_obv(prices, volumes):
+    obv = [0]
+    for i in range(1, len(prices)):
+        if prices[i] > prices[i-1]:
+            obv.append(obv[-1] + volumes[i])
+        elif prices[i] < prices[i-1]:
+            obv.append(obv[-1] - volumes[i])
+        else:
+            obv.append(obv[-1])
+    return obv
 
 def analyze_elliott_waves(prices):
     if len(prices) < 8:
@@ -74,12 +120,16 @@ def get_historical_data(coin_id):
         prices = [price[1] for price in data['prices']]
         volumes = [volume[1] for volume in data['total_volumes']]
         labels = [f"Day {i+1}" for i in range(len(prices))]
-        rsi_values = list(calculate_rsi(prices))
+        rsi_values = calculate_rsi(prices)
         macd_line, signal_line = calculate_macd(prices)
+        sma, ema = calculate_sma_ema(prices)
+        upper_bb, lower_bb = calculate_bollinger_bands(prices)[1:]  # Skip SMA for now
+        k_stoch, d_stoch = calculate_stochastic(prices)
+        obv = calculate_obv(prices, volumes)
         elliott_analysis = analyze_elliott_waves(prices)
-        return labels, prices, volumes, rsi_values, macd_line, signal_line, elliott_analysis
+        return labels, prices, volumes, rsi_values, macd_line, signal_line, sma, ema, upper_bb, lower_bb, k_stoch, d_stoch, obv, elliott_analysis
     print(f"Error fetching data for {coin_id}: {response.status_code} - {response.text}")
-    return [], [], [], [], [], [], "Error fetching historical data."
+    return [], [], [], [], [], [], [], [], [], [], [], [], [], "Error fetching historical data."
 
 def get_real_time_price(coin_id):
     url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd"
@@ -98,6 +148,13 @@ def home():
     chart_rsi = []
     chart_macd = []
     chart_signal = []
+    chart_sma = []
+    chart_ema = []
+    chart_upper_bb = []
+    chart_lower_bb = []
+    chart_k_stoch = []
+    chart_d_stoch = []
+    chart_obv = []
     elliott_analysis = ""
     real_time_price = 0
     selected_coin_id = request.form.get("ticker") if request.method == "POST" else None
@@ -113,16 +170,22 @@ def home():
                 "market_cap": f"${data['market_data']['market_cap']['usd']:,.0f}",
                 "volume_24h": f"${data['market_data']['total_volume']['usd']:,.0f}"
             }
-            chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal, elliott_analysis = get_historical_data(selected_coin_id)
+            (chart_labels, chart_prices, chart_volumes, chart_rsi, chart_macd, chart_signal,
+             chart_sma, chart_ema, chart_upper_bb, chart_lower_bb, chart_k_stoch, chart_d_stoch,
+             chart_obv, elliott_analysis) = get_historical_data(selected_coin_id)
             real_time_price = get_real_time_price(selected_coin_id)
         else:
             crypto_data = {"error": "Unable to fetch data for this coin"}
 
-    return render_template("index.html", crypto_data=crypto_data, coins=COIN_LIST, 
-                          chart_labels=chart_labels, chart_prices=chart_prices, 
-                          chart_volumes=chart_volumes, chart_rsi=chart_rsi, 
-                          chart_macd=chart_macd, chart_signal=chart_signal, 
-                          elliott_analysis=elliott_analysis, real_time_price=real_time_price)
+    return render_template("index.html", crypto_data=crypto_data, coins=COIN_LIST,
+                          chart_labels=chart_labels, chart_prices=chart_prices,
+                          chart_volumes=chart_volumes, chart_rsi=chart_rsi,
+                          chart_macd=chart_macd, chart_signal=chart_signal,
+                          chart_sma=chart_sma, chart_ema=chart_ema,
+                          chart_upper_bb=chart_upper_bb, chart_lower_bb=chart_lower_bb,
+                          chart_k_stoch=chart_k_stoch, chart_d_stoch=chart_d_stoch,
+                          chart_obv=chart_obv, elliott_analysis=elliott_analysis,
+                          real_time_price=real_time_price)
 
 if __name__ == "__main__":
     app.run(debug=True)
