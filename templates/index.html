@@ -7,10 +7,15 @@
         body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
         .result { margin-top: 20px; }
         select { width: 200px; padding: 5px; }
+        .search-container { margin-bottom: 10px; }
+        #searchInput { width: 200px; padding: 5px; }
     </style>
 </head>
 <body>
     <h1>WAVE Crypto Trading Tool</h1>
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search ticker or name..." onkeyup="filterOptions()">
+    </div>
     <form method="POST">
         <label for="ticker">Select Cryptocurrency:</label>
         <select id="ticker" name="ticker" required>
@@ -34,5 +39,24 @@
             {% endif %}
         </div>
     {% endif %}
+
+    <script>
+        function filterOptions() {
+            // Get the search term and the select element
+            let input = document.getElementById("searchInput").value.toLowerCase();
+            let select = document.getElementById("ticker");
+            let options = select.options;
+
+            // Loop through all options
+            for (let i = 0; i < options.length; i++) {
+                let text = options[i].text.toLowerCase();
+                if (text.includes(input)) {
+                    options[i].style.display = ""; // Show matching option
+                } else {
+                    options[i].style.display = "none"; // Hide non-matching option
+                }
+            }
+        }
+    </script>
 </body>
 </html>
