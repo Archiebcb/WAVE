@@ -137,7 +137,7 @@
                 }
             }
         }
-    
+
         let chart = null;
         if (document.getElementById('priceChart') && crypto_data && !crypto_data.error) {
             const ctx = document.getElementById('priceChart').getContext('2d');
@@ -145,10 +145,10 @@
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: {{ chart_labels|tojson }},
+                    labels: {{ chart_labels|tojson|safe }},
                     datasets: [{
                         label: 'Price (USD) - Last 7 Days',
-                        data: {{ chart_data|tojson }},
+                        data: {{ chart_data|tojson|safe }},
                         borderColor: '#00ffcc',
                         tension: 0.1,
                         fill: false
@@ -158,10 +158,10 @@
                     scales: {
                         y: {
                             beginAtZero: false,
-                            title: { display: true, text: 'Price (USD)' }
+                            title: { display: true, text: 'Price (USD)', color: '#00ffcc' }
                         },
                         x: {
-                            title: { display: true, text: 'Days' }
+                            title: { display: true, text: 'Days', color: '#00ffcc' }
                         }
                     },
                     plugins: {
